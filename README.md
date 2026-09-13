@@ -44,6 +44,40 @@ def get_user(user_id: int):
 
 That's it. Every request, every stdlib log record, and every uncaught exception is now captured. Open the dashboard at `/admin/logs` (enter the token on the lock screen).
 
+## Configuration
+
+`observe()` takes explicit arguments and never reads your environment or `.env` file itself — each app owns its config, so the same package works unchanged across projects:
+
+| Argument | Default | Meaning |
+|---|---|---|
+| `db_path` | `"nahiarhdlog.db"` | SQLite file for events |
+| `dashboard_token` | `None` (dashboard off) | Token for the dashboard; unset = no dashboard |
+| `dashboard_prefix` | `"/admin/logs"` | Where the dashboard lives |
+| `retention_days` | `7` | How long events are kept |
+
+Typical `.env`-based wiring in your app:
+
+```bash
+# .env (never commit this file)
+NAHILOG_DB=/var/lib/myapp/nahiarhdlog.db
+NAHILOG_TOKEN=long-random-secret
+```
+
+```python
+import os
+from fastapi import FastAPI
+from nahiarhdLOG import observe
+
+app = FastAPI()
+observe(
+    app,
+    db_path=os.environ.get("NAHILOG_DB", "nahiarhdlog.db"),
+    dashboard_token=os.environ.get("NAHILOG_TOKEN"),  # None = dashboard disabled
+)
+```
+
+> If your app loads `.env` via `dotenv_values` (read-only dict) instead of `load_dotenv`, `os.environ` won't see those values — pass them through your env helper instead.
+
 ## Features
 
 | Area | What you get |
