@@ -1,0 +1,49 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+.venv-*/
+.venv-verify/
+venv/
+ENV/
+
+# Test / coverage
+.tox/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Local observability database (created by nahiarhdlog itself)
+*.db
+*.db-shm
+*.db-wal
+
+# uv lockfile (libraries resolve fresh; only apps commit locks)
+uv.lock
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
