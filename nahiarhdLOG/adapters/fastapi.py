@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from ..alerter import Alerter, AlertSink, Rule
-from ..collector import Collector
+from ..collector import DEFAULT_DB_PATH, Collector
 from ..handler import NahiarhdHandler, install_excepthook
 from ..middleware import LoggingMiddleware
 
@@ -25,7 +25,7 @@ def _ensure_handler(collector: Collector, level: int) -> None:
 
 def observe(
     app: Any,
-    db_path: str = "nahiarhdlog.db",
+    db_path: str = DEFAULT_DB_PATH,
     retention_days: int = 7,
     sample_rate: float = 1.0,
     level: int = logging.INFO,

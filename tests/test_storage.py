@@ -1,9 +1,11 @@
+import inspect
 import sqlite3
 import time
 
 import pytest
 
-from nahiarhdLOG.collector import Collector
+from nahiarhdLOG.adapters.fastapi import observe
+from nahiarhdLOG.collector import DEFAULT_DB_PATH, Collector
 from nahiarhdLOG.query import LogFilter, count_logs, get_event, search_logs
 from nahiarhdLOG.storage import SQLiteStorage
 
@@ -121,3 +123,22 @@ def test_collector_start_stop_flushes(tmp_path):
         assert s.count(text="persisted") == 1
     finally:
         s.close()
+
+
+def test_storage_creates_missing_parent_dirs(tmp_path):
+    nested = tmp_path / "sub" / "dir" / "t.db"
+    s = SQLiteStorage(str(nested))
+    try:
+        s.insert_many([_event("nested")])
+        assert s.count(text="nested") == 1
+    finally:
+        s.close()
+    assert nested.exists()
+
+
+def test_default_db_path_is_dot_directory():
+    assert DEFAULT_DB_PATH == ".nahiarhdlog/nahiarhdlog.db"
+    params = inspect.signature(Collector.__init__).parameters
+    assert params["db_path"].default is DEFAULT_DB_PATH
+    params = inspect.signature(observe).parameters
+    assert params["db_path"].default is DEFAULT_DB_PATH

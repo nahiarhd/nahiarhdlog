@@ -19,13 +19,16 @@ _FLUSH_INTERVAL = 0.2  # seconds
 _BATCH_SIZE = 500
 _PURGE_INTERVAL = 3600.0  # seconds
 
+# Default on-disk location: a dot-directory keeps project roots clean.
+DEFAULT_DB_PATH = ".nahiarhdlog/nahiarhdlog.db"
+
 
 class Collector:
     """Receives events without blocking callers and persists them in batches."""
 
     def __init__(
         self,
-        db_path: str = "nahiarhdlog.db",
+        db_path: str = DEFAULT_DB_PATH,
         retention_days: int = 7,
         queue_size: int = 10_000,
         alerter: Alerter | None = None,
