@@ -158,6 +158,32 @@ Open `http://127.0.0.1:8000/admin/logs` with token `demo-token`.
 
 Non-goals for now: Flask/Django adapters and a Postgres backend. The core stays framework-agnostic and SQLite keeps the zero-infrastructure promise — those get revisited only if real demand shows up.
 
+## Custom storage backends
+
+SQLite is the default and stays zero-infrastructure. But storage is a small duck-typed interface — if you ever outgrow SQLite (multi-host shared history, extreme write concurrency), plug your own backend without forking:
+
+```python
+from nahiarhdLOG.collector import Collector
+
+collector = Collector(storage=PostgresStorage(dsn))  # your class, your infra
+```
+
+Implement these 9 members (mirror `SQLiteStorage` in `storage.py`):
+
+| Member | Role |
+|---|---|
+| `insert_many(events) -> int` | Persist a batch; called from the writer thread |
+| `search(...) -> list[dict]` | Newest-first events with text/level/type/trace/signature/time filters + limit/offset |
+| `count(...) -> int` | Same filters, returns the match count |
+| `top_signatures(since, limit) -> list` | `[{signature, count, last_ts}]` for the Errors tab |
+| `fetch_requests(since, until) -> list` | Lightweight `[{ts, status, duration_ms}]` rows for metrics |
+| `get(event_id) -> dict \| None` | One event by id |
+| `purge() -> int` | Delete events older than retention; returns rows removed |
+| `close() -> None` | Release resources |
+| `fts_available -> bool` | Whether full-text search is active |
+
+Event dicts look like `{id, ts, type, level, message, trace_id, data}`. Implementations must be thread-safe: writes come from one background thread, reads from request threads.
+
 ## Development
 
 ```bash
