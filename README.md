@@ -155,8 +155,8 @@ Open `http://127.0.0.1:8000/admin/logs` with token `demo-token`.
 - [x] Error tracker + webhook alerts
 - [x] Metrics + tracing (+ optional OpenTelemetry export)
 - [x] Embedded dashboard UI
-- [ ] Flask/Django adapters
-- [ ] Postgres storage backend
+
+Non-goals for now: Flask/Django adapters and a Postgres backend. The core stays framework-agnostic and SQLite keeps the zero-infrastructure promise — those get revisited only if real demand shows up.
 
 ## Development
 
