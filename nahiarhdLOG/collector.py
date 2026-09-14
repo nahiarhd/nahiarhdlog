@@ -32,8 +32,15 @@ class Collector:
         retention_days: int = 7,
         queue_size: int = 10_000,
         alerter: Alerter | None = None,
+        storage: SQLiteStorage | None = None,
     ) -> None:
-        self.storage = SQLiteStorage(db_path, retention_days=retention_days)
+        # Custom backends (e.g. Postgres) plug in here; anything duck-typed
+        # like SQLiteStorage works. Default stays zero-infrastructure.
+        self.storage = (
+            storage
+            if storage is not None
+            else SQLiteStorage(db_path, retention_days=retention_days)
+        )
         self.alerter = alerter
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=queue_size)
         self._dropped = 0

@@ -142,3 +142,29 @@ def test_default_db_path_is_dot_directory():
     assert params["db_path"].default is DEFAULT_DB_PATH
     params = inspect.signature(observe).parameters
     assert params["db_path"].default is DEFAULT_DB_PATH
+
+
+class _FakeStorage:
+    """Minimal duck-typed backend proving the Collector storage seam."""
+
+    def __init__(self) -> None:
+        self.events: list = []
+        self.closed = False
+
+    def insert_many(self, events) -> int:
+        events = list(events)
+        self.events.extend(events)
+        return len(events)
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_collector_accepts_custom_storage():
+    fake = _FakeStorage()
+    c = Collector(storage=fake).start()
+    c.emit(_event("via-fake"))
+    assert c.flush()
+    c.stop()
+    assert [e["message"] for e in fake.events] == ["via-fake"]
+    assert fake.closed
