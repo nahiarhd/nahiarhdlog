@@ -1,10 +1,31 @@
 # nahiarhdlog
 
+[![CI](https://github.com/nahiarhd/nahiarhdlog/actions/workflows/ci.yml/badge.svg)](https://github.com/nahiarhd/nahiarhdlog/actions)
 [![PyPI version](https://img.shields.io/pypi/v/nahiarhdlog.svg)](https://pypi.org/project/nahiarhdlog/)
 [![Python Version](https://img.shields.io/pypi/pyversions/nahiarhdlog.svg)](https://pypi.org/project/nahiarhdlog/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Embedded observability for FastAPI: searchable logs, error tracking, alerts, metrics, and tracing — with zero-config defaults.
+Embedded observability for FastAPI — searchable logs, error tracking, alerts, metrics, tracing, and a token-locked dashboard. Zero infrastructure: everything lives in one SQLite file.
+
+![nahiarhdlog dashboard](https://raw.githubusercontent.com/nahiarhd/nahiarhdlog/main/docs/dashboard.png)
+
+## Why nahiarhdlog?
+
+- **No infrastructure.** No ELK, no agents, no SaaS — `pip install` and you have history, search, and a UI.
+- **Embedded dashboard.** Your logs live at `/admin/logs` inside your own app, behind your own token.
+- **Negligible overhead.** Requests enqueue a small dict (p95 ~0.04 ms); SQLite writes happen in batches on a background thread. The queue is bounded — when full, events drop with a visible counter instead of ever blocking a request.
+- **Framework-agnostic core.** FastAPI first; the core imports no web framework, so Flask/Django adapters can follow without changing it.
+
+## Install
+
+```bash
+pip install nahiarhdlog
+# or: uv add nahiarhdlog
+```
+
+Requires Python ≥ 3.10. Events are stored in `.nahiarhdlog/nahiarhdlog.db` (SQLite, WAL mode, FTS5 search).
+
+## Quickstart
 
 ```python
 from fastapi import FastAPI
@@ -14,46 +35,33 @@ app = FastAPI()
 observe(app, dashboard_token="secret")  # logs + errors + metrics + dashboard
 ```
 
-> **Status:** FastAPI is supported first. The core is framework-agnostic, so Flask/Django adapters can follow without changing it.
+That's it. Every request, every stdlib log record, and every uncaught exception is now captured. Open `/admin/logs` and enter the token on the lock screen.
 
-## 2-minute install
+## Features
 
-```bash
-pip install nahiarhdlog
-```
+| Area | What you get |
+| ---- | ------------ |
+| Logs | Auto-captured stdlib records + requests; full-text search (FTS5), level/type/time/trace filters, pagination |
+| Errors | Grouped by `ExcType@file.py:line`, full tracebacks, top-errors ranking |
+| Alerts | Threshold rules (N events in M seconds) + cooldown; webhook, Telegram, and SMTP sinks |
+| Metrics | RPS, error rate, latency p50/p95, time-bucketed series — computed from the same request events |
+| Tracing | One `trace_id` per request shared by logs and errors; timeline view; optional OpenTelemetry export |
+| Dashboard | Embedded at `/admin/logs`, token-locked, dark/light mode, mobile-friendly, live tail |
 
-Requires Python >= 3.10. No servers, no agents, no config files: events are stored in a local SQLite file (`nahiarhdlog.db`).
-
-## Quick start
-
-```python
-import logging
-from fastapi import FastAPI
-from nahiarhdLOG import observe
-
-app = FastAPI()
-observe(app, dashboard_token="secret")
-
-log = logging.getLogger(__name__)
-
-@app.get("/users/{user_id}")
-def get_user(user_id: int):
-    log.info("fetching user %d", user_id)
-    return {"id": user_id}
-```
-
-That's it. Every request, every stdlib log record, and every uncaught exception is now captured. Open the dashboard at `/admin/logs` (enter the token on the lock screen).
-
-## Configuration
+<details>
+<summary><strong>Configuration</strong> — all arguments and <code>.env</code> wiring</summary>
 
 `observe()` takes explicit arguments and never reads your environment or `.env` file itself — each app owns its config, so the same package works unchanged across projects:
 
 | Argument | Default | Meaning |
 |---|---|---|
-| `db_path` | `"nahiarhdlog.db"` | SQLite file for events |
+| `db_path` | `".nahiarhdlog/nahiarhdlog.db"` | SQLite file for events (parent dirs auto-created) |
 | `dashboard_token` | `None` (dashboard off) | Token for the dashboard; unset = no dashboard |
 | `dashboard_prefix` | `"/admin/logs"` | Where the dashboard lives |
 | `retention_days` | `7` | How long events are kept |
+| `sample_rate` | `1.0` | 1.0 = every request; 500s are always kept |
+| `level` | `logging.INFO` | Minimum stdlib level captured |
+| `skip_paths` | `[]` | Extra paths the middleware ignores (dashboard prefix is always excluded) |
 
 Typical `.env`-based wiring in your app:
 
@@ -71,63 +79,34 @@ from nahiarhdLOG import observe
 app = FastAPI()
 observe(
     app,
-    db_path=os.environ.get("NAHILOG_DB", "nahiarhdlog.db"),
+    db_path=os.environ.get("NAHILOG_DB", ".nahiarhdlog/nahiarhdlog.db"),
     dashboard_token=os.environ.get("NAHILOG_TOKEN"),  # None = dashboard disabled
 )
 ```
 
 > If your app loads `.env` via `dotenv_values` (read-only dict) instead of `load_dotenv`, `os.environ` won't see those values — pass them through your env helper instead.
 
-## Features
+</details>
 
-| Area | What you get |
-| ---- | ------------ |
-| Logs | Auto-captured stdlib records + requests; full-text search (FTS5), level/type/time/trace filters, pagination |
-| Errors | Grouped by `ExcType@file.py:line`, full tracebacks, top-errors ranking |
-| Alerts | Threshold rules (N events in M seconds) + cooldown; webhook, Telegram, and SMTP sinks |
-| Metrics | RPS, error rate, latency p50/p95, time-bucketed series — computed from the same request events |
-| Tracing | One `trace_id` per request shared by logs and errors; timeline view; optional OpenTelemetry export |
-| Dashboard | Embedded at `/admin/logs`, token-locked, dark/light mode, mobile-friendly, live tail |
-
-Design limits (on purpose): bounded in-memory queue (full → drop + visible counter, requests are never blocked), batched async writes, paginated queries. Measured middleware overhead: p95 ~0.04 ms (see `scripts/probe_perf.py`).
-
-## Configuration
-
-```python
-from nahiarhdLOG.alerter import Rule, TelegramSink, WebhookSink
-
-observe(
-    app,
-    db_path="nahiarhdlog.db",   # local SQLite file (WAL mode)
-    retention_days=7,            # auto-purge older events
-    sample_rate=1.0,             # 1.0 = every request; 500s are always kept
-    level=logging.INFO,          # minimum stdlib level captured
-    rules=[Rule("errors", count=5, window_seconds=300, cooldown_seconds=3600)],
-    sinks=[TelegramSink(bot_token="...", chat_id="...")],
-    dashboard_prefix="/admin/logs",
-    dashboard_token="secret",    # omit to disable the dashboard entirely
-    skip_paths=["/healthz"],     # extra paths the middleware ignores
-)
-```
-
-The dashboard's own traffic is never logged, so live tail can't flood itself.
-
-### Alert sinks
+<details>
+<summary><strong>Alerts &amp; OpenTelemetry</strong> — rules, sinks, trace export</summary>
 
 ```python
 from nahiarhdLOG.alerter import Rule, SmtpSink, TelegramSink, WebhookSink
 
-rules = [Rule("api-errors", count=10, window_seconds=600, cooldown_seconds=1800)]
-sinks = [
-    WebhookSink("https://hooks.example/deploy"),          # POSTs {"subject","body"} as JSON
-    TelegramSink(bot_token="123:ABC", chat_id="-100..."),  # Bot API sendMessage
-    SmtpSink("smtp.example.com", ["ops@example.com"], username="bot", password="..."),
-]
+observe(
+    app,
+    rules=[Rule("api-errors", count=10, window_seconds=600, cooldown_seconds=1800)],
+    sinks=[
+        WebhookSink("https://hooks.example/deploy"),          # POSTs {"subject","body"} as JSON
+        TelegramSink(bot_token="123:ABC", chat_id="-100..."),  # Bot API sendMessage
+        SmtpSink("smtp.example.com", ["ops@example.com"], username="bot", password="..."),
+    ],
+    dashboard_token="secret",
+)
 ```
 
 Rules evaluate in a background thread; a failing sink never blocks the others.
-
-### OpenTelemetry export (optional)
 
 ```bash
 pip install "nahiarhdlog[otel]"
@@ -139,6 +118,8 @@ from nahiarhdLOG.query import get_trace
 
 export_trace(get_trace(collector.storage, trace_id))  # keeps the original trace id
 ```
+
+</details>
 
 ## Example app
 
@@ -156,9 +137,9 @@ Open `http://127.0.0.1:8000/admin/logs` with token `demo-token`.
 
 **Which Python versions?** 3.10+ (3.10, 3.11, 3.12 tested in CI).
 
-**Where is data stored?** One SQLite file (`db_path`), WAL mode, FTS5 index for search. Delete the file to wipe everything. Set `retention_days` for automatic purging.
+**Where is data stored?** One SQLite file (`.nahiarhdlog/nahiarhdlog.db` by default), WAL mode, FTS5 index for search. Delete the directory to wipe everything. Set `retention_days` for automatic purging.
 
-**Is the dashboard secure?** It is mounted only when `dashboard_token` is set, and every page + API call requires the token (query param or `Authorization: Bearer`). Without it you get a lock screen (401). Use a long random token and HTTPS in production.
+**Is the dashboard secure?** It is mounted only when `dashboard_token` is set, and every page + API call requires the token (cookie set at login; old `?token=` links migrate). Without it you get a lock screen (401). Use a long random token and HTTPS in production.
 
 **Why don't I see the dashboard's own requests in the logs?** By design: the dashboard prefix is auto-excluded so its polling doesn't drown your signal. Add more with `skip_paths`.
 
@@ -181,14 +162,13 @@ Open `http://127.0.0.1:8000/admin/logs` with token `demo-token`.
 
 ```bash
 uv pip install -e ".[dev,otel]"
-uv run --no-sync python -m pytest   # run via python -m (see note below)
+uv run --no-sync python -m pytest
 uv run --no-sync python scripts/probe_perf.py --n 10000
 ```
 
-> Note (macOS quirk, this machine): something on this Mac re-applies the Finder's `hidden` flag to dot-directory contents, which makes CPython silently skip `.pth` files and breaks console-script entry points in `.venv`. Running tests via `python -m` (imports from the source tree) is immune, as are regular installs and CI. If a console script ever reports `ModuleNotFoundError`, run `chflags -R nohidden .venv` and prefer `python -m`.
-
 ## Changelog
 
+- **0.2.0** — Default database moved to `.nahiarhdlog/nahiarhdlog.db` (a dot-directory keeps project roots clean; missing parent dirs are auto-created). Note: apps on the old default start a fresh database here — the old `nahiarhdlog.db` is left untouched.
 - **0.1.3** — Dashboard login persists via cookie: refresh and new tabs stay signed in; lock screen signs in without putting the token in the URL; old `?token=` bookmarks keep working and migrate to a cookie. Added Lock button. Shutdown hook moved to lifespan composition (works alongside user-defined lifespans, Starlette 0.52–1.x).
 - **0.1.2** — Requests capture client IP + user agent; detail dialog rebuilt (no empty rows, status chips, "view full trace" jump); log rows keyboard-accessible (Tab + Enter).
 - **0.1.1** — `NahiarhdHandler` no longer appends a second traceback when the message already contains one (loguru-style pre-formatted records, manually formatted tracebacks).
