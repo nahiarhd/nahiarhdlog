@@ -53,9 +53,13 @@
     var d = e.data || {};
     var st = Number(d.status);
     var lvl = e.level || "";
+    var method = String(d.method || "").toUpperCase();
+    var msg = displayMessage(e);
     if (e.type === "error" || lvl === "CRITICAL" || st >= 500) return "sev-crit";
     if (lvl === "ERROR" || st >= 400) return "sev-err";
     if (lvl === "WARNING") return "sev-warn";
+    if (method === "DELETE" || /^\s*Deleted\b/i.test(msg)) return "sev-mut";
+    if (method === "PUT" || method === "PATCH" || /^\s*(Updated|Renamed)\b/i.test(msg)) return "sev-upd";
     return "";
   }
   var COPY_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
@@ -175,6 +179,54 @@
   function chip(text, cls) {
     return '<span class="chip ' + esc(cls || text) + '">' + esc(text) + "</span>";
   }
+  function methodChip(method) {
+    var m = String(method || "").toUpperCase();
+    if (!m) return "";
+    return chip(m, "method method-" + m.toLowerCase());
+  }
+  function requestMsgHtml(e) {
+    var d = e.data || {};
+    var path = d.path || displayMessage(e);
+    var parts = [];
+    if (d.method) parts.push(methodChip(d.method));
+    parts.push("<span class='path'>" + esc(path) + "</span>");
+    if (d.status != null) parts.push(statusChip(d.status));
+    if (d.duration_ms != null) parts.push("<span class='dur'>" + esc(String(d.duration_ms)) + "ms</span>");
+    return parts.join(" ");
+  }
+  function actionClass(action) {
+    var a = String(action || "").toLowerCase();
+    if (a === "deleted") return "action-delete";
+    if (a === "created") return "action-create";
+    return "action-update";
+  }
+  function logMsgHtml(e) {
+    var raw = displayMessage(e);
+    var stripped = raw.replace(/^[^A-Za-z]*/, "");
+    var m = stripped.match(/^(Deleted|Updated|Created|Renamed)\s+(.+)$/i);
+    if (!m) return esc(raw);
+    var action = m[1];
+    var rest = m[2];
+    var parts = [chip(action, "action " + actionClass(action))];
+    var em = rest.match(/^(document|folder|agent|organization)s?\s*:?\s*(.*)$/i);
+    if (!em) {
+      parts.push("<span class='rest'>" + esc(rest) + "</span>");
+      return parts.join(" ");
+    }
+    parts.push(chip(em[1].replace(/s$/i, "").toLowerCase(), "entity"));
+    var tail = (em[2] || "").trim();
+    var idName = tail.match(/^(\S+?)(?:\s+\((.+)\))?$/);
+    if (idName) {
+      if (idName[2]) parts.push("<span class='name'>" + esc(idName[2]) + "</span>");
+      parts.push("<span class='id' title='" + esc(idName[1]) + "'>" + esc(idName[1]) + "</span>");
+    } else if (tail) {
+      parts.push("<span class='rest'>" + esc(tail) + "</span>");
+    }
+    return parts.join(" ");
+  }
+  function msgHtml(e) {
+    return e.type === "request" ? requestMsgHtml(e) : logMsgHtml(e);
+  }
   function logRowHtml(e) {
     var traceCell = e.trace_id
       ? '<button type="button" class="link trace-id" data-trace="' + esc(e.trace_id) +
@@ -188,7 +240,7 @@
       "<td class='time' title='" + esc(fmtTime(e.ts)) + "'>" + esc(fmtTimeShort(e.ts)) + "</td>" +
       "<td class='level'>" + (e.level ? chip(e.level) : "—") + "</td>" +
       "<td class='type'>" + chip(e.type, e.type + " type") + "</td>" +
-      "<td class='msg' title='" + esc(displayMessage(e)) + "'>" + esc(displayMessage(e)) + "</td>" +
+      "<td class='msg' title='" + esc(displayMessage(e)) + "'>" + msgHtml(e) + "</td>" +
       "<td class='trace'>" + traceCell + "</td></tr>";
   }
   function renderSigChip() {
@@ -352,7 +404,7 @@
         add("client", d.client);
         add("user agent", d.user_agent);
       } else {
-        head = esc(displayMessage(e)) + (e.level ? " " + chip(e.level) : "");
+        head = msgHtml(e) + (e.level ? " " + chip(e.level) : "");
         add("time", fmtTime(e.ts));
         add("signature", d.signature);
         add("logger", d.logger);
@@ -597,7 +649,7 @@
           "<span class='t' title='" + esc(fmtTime(e.ts)) + "'>" + esc(fmtTimeShort(e.ts)) + "</span> " +
           chip(e.type, e.type + " type") + " " +
           (e.level ? chip(e.level) + " " : "") +
-          "<div class='m'>" + esc(displayMessage(e)) + "</div></li>";
+          "<div class='m'>" + msgHtml(e) + "</div></li>";
       }).join("") + "</ol>";
     }).catch(function (err) {
       if (err.message !== "unauthorized") showBanner("Could not load trace: " + err.message);

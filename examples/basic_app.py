@@ -51,6 +51,21 @@ def build_app(db_path: str = "demo.db") -> FastAPI:
         log.error("about to explode")
         raise RuntimeError("demo explosion (on purpose)")
 
+    @app.delete("/documents/{file_id}")
+    def delete_document(file_id: str):
+        log.info("Deleted document %s (%s)", file_id, "kontrak.pdf")
+        return {"id": file_id, "ok": True}
+
+    @app.delete("/folders/{folder_id}")
+    def delete_folder(folder_id: str):
+        log.info("Deleted folder %s (%s)", folder_id, "Hukum")
+        return {"id": folder_id, "ok": True}
+
+    @app.patch("/documents/{file_id}")
+    def update_document(file_id: str):
+        log.info("Updated document %s (%s)", file_id, "kontrak.pdf")
+        return {"id": file_id, "ok": True}
+
     return app
 
 
@@ -63,14 +78,26 @@ def cmd_serve(args: argparse.Namespace) -> None:
 def cmd_traffic(args: argparse.Namespace) -> None:
     import httpx
 
-    paths = ["/", "/ping", "/users/7", "/users/0", "/boom", "/nope"]
-    weights = [10, 40, 25, 5, 5, 5]
+    ops = [
+        ("GET", "/", 10),
+        ("GET", "/ping", 28),
+        ("GET", "/users/7", 16),
+        ("GET", "/users/0", 4),
+        ("GET", "/boom", 4),
+        ("GET", "/nope", 4),
+        ("DELETE", "/documents/doc-42", 12),
+        ("DELETE", "/folders/fld-7", 8),
+        ("PATCH", "/documents/doc-42", 6),
+        ("DELETE", "/nope", 2),
+    ]
+    population = [(m, p) for m, p, _ in ops]
+    weights = [w for _, _, w in ops]
     ok = err = 0
     with httpx.Client(base_url=args.base, timeout=10) as client:
         for _ in range(args.n):
-            path = random.choices(paths, weights=weights)[0]
+            method, path = random.choices(population, weights=weights)[0]
             try:
-                r = client.get(path)
+                r = client.request(method, path)
                 if r.status_code < 500:
                     ok += 1
                 else:

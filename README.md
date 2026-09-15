@@ -248,6 +248,7 @@ uv run --no-sync python scripts/probe_perf.py --n 10000
 
 ## Changelog
 
+- **0.6.1** — Log rows parse HTTP methods into chips (GET/POST/PUT/PATCH/DELETE + status + duration) and CRUD lines (`Deleted document …`) into action/entity/name/id. Successful deletes and updates get a gutter, not a full-row wash. Demo traffic includes document/folder DELETE and PATCH.
 - **0.6.0** — Dashboard scan pass: severity gutters, exception last-line in the table (not `Traceback…`), compact timestamps, full trace ids with copy, favicon. Live tail no longer flashes the table. Error cards show the last exception message and a dismissible signature chip. The Trace tab lists recent traces; truncated ids uniquely resolve. Metrics charts get a legend, time axis, theme colors, and hover tooltips. Tabs are a keyboard-accessible tablist; the lock screen uses the dashboard theme tokens. `top_signatures` now includes `last_message`.
 - **0.5.0** — Incoming W3C `traceparent` is reused as `trace_id` and echoed on the response with a new parent-id. Uncaught exceptions in `threading.Thread` are captured (`threading.excepthook`). Stdlib `extra=` fields are stored on the event. FAQ documents the SQLite WAL same-host limit.
 - **0.4.0** — `attach(db_path, source=...)` captures stdlib logs and uncaught exceptions in any process (Celery workers, cron, scripts) with no FastAPI app. Point it at the same SQLite file as `observe()` and the events show up in the existing dashboard. `source` is optional metadata, not a new event type.

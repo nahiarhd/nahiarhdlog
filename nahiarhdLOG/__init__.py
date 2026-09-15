@@ -7,7 +7,7 @@ from typing import Any
 from .attach import attach
 from .collector import Collector
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 __all__ = ["__version__", "Collector", "attach", "observe"]
 
 

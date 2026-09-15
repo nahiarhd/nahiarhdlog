@@ -174,6 +174,8 @@ td button.link {
 tbody tr.sev-warn td.time { box-shadow: inset 3px 0 0 var(--warn); }
 tbody tr.sev-err td.time { box-shadow: inset 3px 0 0 var(--danger); }
 tbody tr.sev-crit td.time { box-shadow: inset 3px 0 0 var(--danger); }
+tbody tr.sev-mut td.time { box-shadow: inset 3px 0 0 var(--danger); }
+tbody tr.sev-upd td.time { box-shadow: inset 3px 0 0 var(--warn); }
 tbody tr.sev-warn { background: var(--warn-soft); }
 tbody tr.sev-crit { background: var(--danger-soft); }
 tbody tr.sev-warn[data-id]:hover { background: var(--warn-soft); }
@@ -199,6 +201,19 @@ tr[data-id]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2
 #detail-body p { margin: 0 0 10px; }
 .chip.request { background: var(--accent-soft); color: var(--accent); }
 .chip.type { font-family: var(--mono); font-weight: 500; }
+.chip.method { font-family: var(--mono); min-width: 3.6em; text-align: center; }
+.chip.method-get { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+.chip.method-post { background: var(--accent-soft); color: var(--accent); }
+.chip.method-put, .chip.method-patch { background: var(--warn-soft); color: var(--warn); }
+.chip.method-delete, .chip.action-delete { background: var(--danger-soft); color: var(--danger); }
+.chip.action-update { background: var(--warn-soft); color: var(--warn); }
+.chip.action-create { background: var(--ok-soft); color: var(--ok); }
+.chip.entity { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); font-weight: 500; }
+td.msg .path, .timeline .m .path { font-family: var(--mono); font-size: 12.5px; }
+td.msg .dur, .timeline .m .dur { color: var(--muted); font-family: var(--mono); font-size: 11.5px; margin-left: 4px; }
+td.msg .chip, .timeline .m .chip { margin-right: 4px; vertical-align: 1px; }
+td.msg .name, .timeline .m .name { font-weight: 600; }
+td.msg .id, .timeline .m .id { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 
 /* Pager */
 .pager { display: flex; align-items: center; gap: 12px; margin-top: 10px; }

@@ -169,9 +169,14 @@ def test_index_and_static_served(client_and_collector):
     assert "trace_id.slice(0, 12)" not in js.text
     assert "activateTab" in js.text
     assert "bindChartHover" in js.text
+    assert "methodChip" in js.text
+    assert "logMsgHtml" in js.text
     css = client.get("/nahiarhdlog/static/styles.css")
     assert css.status_code == 200
     assert "text/css" in css.headers["content-type"]
+    assert "method-delete" in css.text
+    assert "action-delete" in css.text
+    assert "sev-mut" in css.text
     ico = client.get("/nahiarhdlog/static/favicon.svg")
     assert ico.status_code == 200
     assert "svg" in ico.headers["content-type"]
