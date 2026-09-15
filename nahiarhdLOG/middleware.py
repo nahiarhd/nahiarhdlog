@@ -9,12 +9,17 @@ from __future__ import annotations
 import random
 import time
 import traceback
-import uuid
 from contextvars import ContextVar
 from typing import Any, Awaitable, Callable, MutableMapping
 
 from .collector import Collector
 from .grouping import from_traceback
+from .tracecontext import (
+    format_traceparent,
+    new_span_id,
+    new_trace_id,
+    parse_traceparent,
+)
 
 current_trace_id: ContextVar[str | None] = ContextVar(
     "nahiarhdlog_trace_id", default=None
@@ -58,7 +63,11 @@ class LoggingMiddleware:
         if self._skipped(scope.get("path", ""), self.skip_prefixes):
             await self.app(scope, receive, send)
             return
-        trace_id = uuid.uuid4().hex
+        incoming = parse_traceparent(self._header(scope, b"traceparent"))
+        trace_id = incoming.trace_id if incoming else new_trace_id()
+        span_id = new_span_id()
+        flags = incoming.flags if incoming else "01"
+        outgoing = format_traceparent(trace_id, span_id, flags)
         token = current_trace_id.set(trace_id)
         start = time.perf_counter()
         status_holder: dict[str, int] = {}
@@ -66,6 +75,9 @@ class LoggingMiddleware:
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":
                 status_holder["status"] = int(message["status"])
+                headers = list(message.get("headers") or [])
+                headers.append((b"traceparent", outgoing.encode("ascii")))
+                message = {**message, "headers": headers}
             await send(message)
 
         try:
@@ -91,7 +103,13 @@ class LoggingMiddleware:
                 }
             )
             self.collector.emit(
-                self._request_event(scope, 500, duration_ms, trace_id)
+                self._request_event(
+                    scope,
+                    500,
+                    duration_ms,
+                    trace_id,
+                    parent_id=incoming.parent_id if incoming else None,
+                )
             )
             raise
         finally:
@@ -99,7 +117,15 @@ class LoggingMiddleware:
         duration_ms = (time.perf_counter() - start) * 1000
         status = status_holder.get("status", 500)
         if status >= 500 or random.random() < self.sample_rate:
-            self.collector.emit(self._request_event(scope, status, duration_ms, trace_id))
+            self.collector.emit(
+                self._request_event(
+                    scope,
+                    status,
+                    duration_ms,
+                    trace_id,
+                    parent_id=incoming.parent_id if incoming else None,
+                )
+            )
 
     @staticmethod
     def _client_ip(scope: Scope) -> str | None:
@@ -109,30 +135,44 @@ class LoggingMiddleware:
         return None
 
     @staticmethod
-    def _user_agent(scope: Scope) -> str | None:
-        for name, value in scope.get("headers", []):
-            if name.lower() == b"user-agent":
-                return value.decode("latin-1")[:300] or None
+    def _header(scope: Scope, name: bytes) -> str | None:
+        target = name.lower()
+        for key, value in scope.get("headers", []):
+            if key.lower() == target:
+                return value.decode("latin-1") or None
         return None
+
+    @staticmethod
+    def _user_agent(scope: Scope) -> str | None:
+        raw = LoggingMiddleware._header(scope, b"user-agent")
+        return raw[:300] if raw else None
 
     @classmethod
     def _request_event(
-        cls, scope: Scope, status: int, duration_ms: float, trace_id: str
+        cls,
+        scope: Scope,
+        status: int,
+        duration_ms: float,
+        trace_id: str,
+        parent_id: str | None = None,
     ) -> dict[str, Any]:
         query = scope.get("query_string", b"").decode("latin-1")
         path = scope.get("path", "")
+        data: dict[str, Any] = {
+            "method": scope.get("method"),
+            "path": path,
+            "query": query,
+            "status": status,
+            "duration_ms": round(duration_ms, 3),
+            "client": cls._client_ip(scope),
+            "user_agent": cls._user_agent(scope),
+        }
+        if parent_id:
+            data["parent_id"] = parent_id
         return {
             "type": "request",
             "level": None,
             "message": f"{scope.get('method', '?')} {path} -> {status} ({duration_ms:.1f}ms)",
             "trace_id": trace_id,
-            "data": {
-                "method": scope.get("method"),
-                "path": path,
-                "query": query,
-                "status": status,
-                "duration_ms": round(duration_ms, 3),
-                "client": cls._client_ip(scope),
-                "user_agent": cls._user_agent(scope),
-            },
+            "data": data,
         }

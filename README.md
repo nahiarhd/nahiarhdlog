@@ -91,7 +91,7 @@ logger.add(NahiarhdHandler(collector), format="{message}")
 | Errors | Grouped by `ExcType@file.py:line`, full tracebacks, top-errors ranking |
 | Alerts | Threshold rules (N events in M seconds) + cooldown; webhook, Telegram, and SMTP sinks |
 | Metrics | RPS, error rate, latency p50/p95, time-bucketed series — computed from the same request events |
-| Tracing | One `trace_id` per request shared by logs and errors; timeline view; optional OpenTelemetry export |
+| Tracing | W3C `traceparent` in and out; one `trace_id` per request shared by logs and errors; timeline view; optional OpenTelemetry export |
 | Dashboard | Embedded at `/nahiarhdlog`, token-locked, dark/light mode, mobile-friendly, live tail |
 
 <details>
@@ -187,6 +187,10 @@ Open `http://127.0.0.1:8000/nahiarhdlog/` with token `demo-token`.
 
 **Where is data stored?** One SQLite file (`.nahiarhdlog/nahiarhdlog.db` by default), WAL mode, FTS5 index for search. Delete the directory to wipe everything. Set `retention_days` for automatic purging.
 
+**Can two machines share one SQLite file?** No. WAL requires every process on the **same host** (same volume). It does not work over a network filesystem, so an API pod and a worker pod each get their own database unless they mount the same disk. That is a SQLite limit, not a bug. For multi-host history, plug a custom storage backend.
+
+**How do traces line up with my gateway / OpenTelemetry?** Incoming `traceparent` is reused as `trace_id`; the response gets a new `parent-id` for this hop ([W3C Trace Context](https://www.w3.org/TR/trace-context-1/#traceparent-header)). No header → a new trace is started. Browser clients that need to read the response header must add `traceparent` to CORS `expose_headers`.
+
 **Is the dashboard secure?** Data is served only when `dashboard_token` is configured, and every page + API call requires presenting the token (cookie set at login; old `?token=` links migrate). Open the URL without the token and you get a lock screen (401). Skip `dashboard_token` entirely and you get a setup page instead of data. Use a long random token and HTTPS in production.
 
 **Why don't I see the dashboard's own requests in the logs?** By design: the dashboard prefix is auto-excluded so its polling doesn't drown your signal. Add more with `skip_paths`.
@@ -244,6 +248,7 @@ uv run --no-sync python scripts/probe_perf.py --n 10000
 
 ## Changelog
 
+- **0.5.0** — Incoming W3C `traceparent` is reused as `trace_id` and echoed on the response with a new parent-id. Uncaught exceptions in `threading.Thread` are captured (`threading.excepthook`). Stdlib `extra=` fields are stored on the event. FAQ documents the SQLite WAL same-host limit.
 - **0.4.0** — `attach(db_path, source=...)` captures stdlib logs and uncaught exceptions in any process (Celery workers, cron, scripts) with no FastAPI app. Point it at the same SQLite file as `observe()` and the events show up in the existing dashboard. `source` is optional metadata, not a new event type.
 - **0.3.2** — The bare prefix redirects to the slashed dashboard URL (307, query preserved) instead of serving the page twice: `index.html` uses relative asset URLs, so only the slashed page renders correctly. Users only need to know `/nahiarhdlog`.
 - **0.3.1** — The dashboard page is served with and without the trailing slash, so `redirect_slashes=False` apps don't 404 the bare prefix. (Superseded by 0.3.2: the bare URL served a page with broken CSS/JS.)

@@ -22,6 +22,35 @@ def app_and_collector(tmp_path):
         yield client, collector
 
 
+def test_incoming_traceparent_is_reused(app_and_collector):
+    client, collector = app_and_collector
+    incoming = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    r = client.get("/ping", headers={"traceparent": incoming})
+    assert r.status_code == 200
+    outgoing = r.headers.get("traceparent")
+    assert outgoing is not None
+    assert outgoing.startswith("00-4bf92f3577b34da6a3ce929d0e0e4736-")
+    assert outgoing != incoming  # parent-id is this hop, per the spec
+    assert collector.flush()
+    rows = collector.storage.search(event_type="request")
+    row = [e for e in rows if e["data"].get("path") == "/ping"][-1]
+    assert row["trace_id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
+    assert row["data"]["parent_id"] == "00f067aa0ba902b7"
+
+
+def test_invalid_traceparent_starts_a_new_trace(app_and_collector):
+    client, collector = app_and_collector
+    r = client.get("/ping", headers={"traceparent": "garbage"})
+    assert r.status_code == 200
+    outgoing = r.headers["traceparent"]
+    assert outgoing.startswith("00-")
+    assert collector.flush()
+    rows = collector.storage.search(event_type="request")
+    row = [e for e in rows if e["data"].get("path") == "/ping"][-1]
+    assert row["trace_id"] == outgoing.split("-")[1]
+    assert "parent_id" not in row["data"]
+
+
 def test_request_is_logged(app_and_collector):
     client, collector = app_and_collector
     r = client.get("/ping")
