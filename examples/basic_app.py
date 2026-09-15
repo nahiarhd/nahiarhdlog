@@ -7,7 +7,7 @@ Generate traffic (terminal 2):
     uv run python examples/basic_app.py traffic --n 300
 
 Then open the dashboard:
-    http://127.0.0.1:8000/admin/logs   (token: demo-token)
+    http://127.0.0.1:8000/nahiarhdlog   (token: demo-token)
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def build_app(db_path: str = "demo.db") -> FastAPI:
     @app.get("/")
     def index():
         log.info("index visited")
-        return {"app": "nahiarhdlog demo", "dashboard": "/admin/logs"}
+        return {"app": "nahiarhdlog demo", "dashboard": "/nahiarhdlog"}
 
     @app.get("/ping")
     def ping():

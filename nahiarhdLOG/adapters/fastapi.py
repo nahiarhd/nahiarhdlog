@@ -13,6 +13,8 @@ from ..collector import DEFAULT_DB_PATH, Collector
 from ..handler import NahiarhdHandler, install_excepthook
 from ..middleware import LoggingMiddleware
 
+logger = logging.getLogger(__name__)
+
 
 def _ensure_handler(collector: Collector, level: int) -> None:
     root = logging.getLogger()
@@ -31,15 +33,17 @@ def observe(
     level: int = logging.INFO,
     rules: list[Rule] | None = None,
     sinks: list[AlertSink] | None = None,
-    dashboard_prefix: str = "/admin/logs",
+    dashboard_prefix: str = "/nahiarhdlog",
     dashboard_token: str | None = None,
     skip_paths: list[str] | None = None,
 ) -> Collector:
     """Attach nahiarhdlog to a FastAPI app. Returns the collector.
 
-    The dashboard is mounted only when `dashboard_token` is set: it must
-    never be reachable without a key. The dashboard's own traffic is never
-    logged, so live tail can't flood itself.
+    The dashboard data is served only when `dashboard_token` is set: it
+    must never be reachable without a key. Without a token the prefix
+    serves a setup page telling the user how to enable the dashboard.
+    The dashboard zone's own traffic is never logged, so live tail
+    can't flood itself.
     """
     alerter = None
     if rules and sinks:
@@ -47,9 +51,9 @@ def observe(
     collector = Collector(
         db_path, retention_days=retention_days, alerter=alerter
     ).start()
-    prefix = (dashboard_prefix or "/admin/logs").rstrip("/") or "/admin/logs"
+    prefix = (dashboard_prefix or "/nahiarhdlog").rstrip("/") or "/nahiarhdlog"
     skips = list(skip_paths or [])
-    if dashboard_token and prefix not in skips:
+    if prefix not in skips:
         skips.append(prefix)
     app.add_middleware(
         LoggingMiddleware,
@@ -65,6 +69,15 @@ def observe(
         app.include_router(
             create_dashboard_router(collector, dashboard_token), prefix=prefix
         )
+    else:
+        from ..dashboard.router import create_setup_router
+
+        logger.warning(
+            "nahiarhdlog dashboard is disabled: dashboard_token is not set. "
+            'Pass dashboard_token="..." to observe() to enable it at %s/.',
+            prefix,
+        )
+        app.include_router(create_setup_router(prefix), prefix=prefix)
 
     def _shutdown() -> None:
         collector.stop()

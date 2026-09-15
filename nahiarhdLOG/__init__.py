@@ -6,7 +6,7 @@ from typing import Any
 
 from .collector import Collector
 
-__version__ = "0.2.0"
+__version__ = "0.3.1"
 __all__ = ["__version__", "Collector", "observe"]
 
 

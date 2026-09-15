@@ -12,7 +12,7 @@ Embedded observability for FastAPI — searchable logs, error tracking, alerts, 
 ## Why nahiarhdlog?
 
 - **No infrastructure.** No ELK, no agents, no SaaS — `pip install` and you have history, search, and a UI.
-- **Embedded dashboard.** Your logs live at `/admin/logs` inside your own app, behind your own token.
+- **Embedded dashboard.** Your logs live at `/nahiarhdlog` inside your own app, behind your own token.
 - **Negligible overhead.** Requests enqueue a small dict (p95 ~0.04 ms); SQLite writes happen in batches on a background thread. The queue is bounded — when full, events drop with a visible counter instead of ever blocking a request.
 - **Framework-agnostic core.** FastAPI first; the core imports no web framework, so Flask/Django adapters can follow without changing it.
 
@@ -35,7 +35,9 @@ app = FastAPI()
 observe(app, dashboard_token="secret")  # logs + errors + metrics + dashboard
 ```
 
-That's it. Every request, every stdlib log record, and every uncaught exception is now captured. Open `/admin/logs` and enter the token on the lock screen.
+That's it. Every request, every stdlib log record, and every uncaught exception is now captured. Open `/nahiarhdlog/` and enter the token on the lock screen.
+
+Forgot `dashboard_token`? No 404: `observe()` logs a startup warning and the URL serves a setup page telling you how to enable the dashboard. Collection keeps running either way — only the dashboard is gated.
 
 ## Features
 
@@ -46,7 +48,7 @@ That's it. Every request, every stdlib log record, and every uncaught exception 
 | Alerts | Threshold rules (N events in M seconds) + cooldown; webhook, Telegram, and SMTP sinks |
 | Metrics | RPS, error rate, latency p50/p95, time-bucketed series — computed from the same request events |
 | Tracing | One `trace_id` per request shared by logs and errors; timeline view; optional OpenTelemetry export |
-| Dashboard | Embedded at `/admin/logs`, token-locked, dark/light mode, mobile-friendly, live tail |
+| Dashboard | Embedded at `/nahiarhdlog`, token-locked, dark/light mode, mobile-friendly, live tail |
 
 <details>
 <summary><strong>Configuration</strong> — all arguments and <code>.env</code> wiring</summary>
@@ -56,8 +58,8 @@ That's it. Every request, every stdlib log record, and every uncaught exception 
 | Argument | Default | Meaning |
 |---|---|---|
 | `db_path` | `".nahiarhdlog/nahiarhdlog.db"` | SQLite file for events (parent dirs auto-created) |
-| `dashboard_token` | `None` (dashboard off) | Token for the dashboard; unset = no dashboard |
-| `dashboard_prefix` | `"/admin/logs"` | Where the dashboard lives |
+| `dashboard_token` | `None` (setup page) | Token for the dashboard; unset = setup page, data stays off |
+| `dashboard_prefix` | `"/nahiarhdlog"` | Where the dashboard lives |
 | `retention_days` | `7` | How long events are kept |
 | `sample_rate` | `1.0` | 1.0 = every request; 500s are always kept |
 | `level` | `logging.INFO` | Minimum stdlib level captured |
@@ -80,7 +82,7 @@ app = FastAPI()
 observe(
     app,
     db_path=os.environ.get("NAHILOG_DB", ".nahiarhdlog/nahiarhdlog.db"),
-    dashboard_token=os.environ.get("NAHILOG_TOKEN"),  # None = dashboard disabled
+    dashboard_token=os.environ.get("NAHILOG_TOKEN"),  # None = setup page, data stays off
 )
 ```
 
@@ -131,7 +133,7 @@ uv run python examples/basic_app.py serve
 uv run python examples/basic_app.py traffic --n 300
 ```
 
-Open `http://127.0.0.1:8000/admin/logs` with token `demo-token`.
+Open `http://127.0.0.1:8000/nahiarhdlog/` with token `demo-token`.
 
 ## FAQ
 
@@ -139,7 +141,7 @@ Open `http://127.0.0.1:8000/admin/logs` with token `demo-token`.
 
 **Where is data stored?** One SQLite file (`.nahiarhdlog/nahiarhdlog.db` by default), WAL mode, FTS5 index for search. Delete the directory to wipe everything. Set `retention_days` for automatic purging.
 
-**Is the dashboard secure?** It is mounted only when `dashboard_token` is set, and every page + API call requires the token (cookie set at login; old `?token=` links migrate). Without it you get a lock screen (401). Use a long random token and HTTPS in production.
+**Is the dashboard secure?** Data is served only when `dashboard_token` is configured, and every page + API call requires presenting the token (cookie set at login; old `?token=` links migrate). Open the URL without the token and you get a lock screen (401). Skip `dashboard_token` entirely and you get a setup page instead of data. Use a long random token and HTTPS in production.
 
 **Why don't I see the dashboard's own requests in the logs?** By design: the dashboard prefix is auto-excluded so its polling doesn't drown your signal. Add more with `skip_paths`.
 
@@ -147,7 +149,7 @@ Open `http://127.0.0.1:8000/admin/logs` with token `demo-token`.
 
 **Flask / Django / plain scripts?** On the roadmap. The core (`collector`, `storage`, `query`, `alerter`, `metrics`) imports no web framework — only the thin `adapters/` layer does, enforced by an automated boundary test.
 
-**How do I disable the dashboard?** Omit `dashboard_token` (default): nothing is mounted.
+**How do I disable the dashboard?** Omit `dashboard_token` (default): events are still collected, but the dashboard URL serves a setup notice instead of data.
 
 ## Roadmap
 
@@ -194,6 +196,8 @@ uv run --no-sync python scripts/probe_perf.py --n 10000
 
 ## Changelog
 
+- **0.3.1** — The dashboard page is served with and without the trailing slash, so `redirect_slashes=False` apps don't 404 the bare prefix. No redirect involved: both URLs serve directly.
+- **0.3.0** — Dashboard default moved from `/admin/logs` to `/nahiarhdlog` (pass `dashboard_prefix="/admin/logs"` to keep the old URL). No `dashboard_token` no longer 404s: `observe()` logs a startup warning and serves a setup page explaining how to enable the dashboard.
 - **0.2.0** — Default database moved to `.nahiarhdlog/nahiarhdlog.db` (a dot-directory keeps project roots clean; missing parent dirs are auto-created). Note: apps on the old default start a fresh database here — the old `nahiarhdlog.db` is left untouched.
 - **0.1.3** — Dashboard login persists via cookie: refresh and new tabs stay signed in; lock screen signs in without putting the token in the URL; old `?token=` bookmarks keep working and migrate to a cookie. Added Lock button. Shutdown hook moved to lifespan composition (works alongside user-defined lifespans, Starlette 0.52–1.x).
 - **0.1.2** — Requests capture client IP + user agent; detail dialog rebuilt (no empty rows, status chips, "view full trace" jump); log rows keyboard-accessible (Tab + Enter).

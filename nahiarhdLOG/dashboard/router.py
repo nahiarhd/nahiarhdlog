@@ -6,12 +6,13 @@ Dashboard zone: allowed to import FastAPI/Starlette (see adapter boundary test).
 from __future__ import annotations
 
 import hmac
+import html
 from importlib import resources
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from .. import __version__
 from ..metrics import request_stats, timeseries
@@ -79,6 +80,10 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
     authed = Depends(_check)
     router = APIRouter()
 
+    # Served with and without the trailing slash: apps with
+    # redirect_slashes=False would 404 the bare prefix otherwise, and a
+    # redirect is one more round-trip for no benefit.
+    @router.get("", include_in_schema=False)
     @router.get("/")
     def index(request: Request) -> FileResponse:
         return _page(request, "index.html")
@@ -179,5 +184,72 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
         window = max(60.0, min(float(window), 7 * 86400.0))
         buckets = max(1, min(int(buckets), 500))
         return timeseries(collector.storage, window_seconds=window, buckets=buckets)
+
+    return router
+
+
+_SETUP_PAGE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nahiarhdlog — setup required</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #f3f4f6; color: #1f2937;
+  }
+  @media (prefers-color-scheme: dark) { body { background: #111827; color: #f3f4f6; } }
+  .card {
+    background: #fff; border: 1px solid #d1d5db; border-radius: 10px;
+    padding: 28px 32px; width: min(460px, 92vw);
+  }
+  @media (prefers-color-scheme: dark) { .card { background: #1f2937; border-color: #374151; } }
+  h1 { font-size: 18px; margin: 0 0 6px; }
+  p { font-size: 14px; margin: 0 0 12px; opacity: .85; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; background: rgba(127,127,127,.15);
+    padding: 1px 5px; border-radius: 4px;
+  }
+  pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; line-height: 1.5; padding: 12px 14px;
+    border-radius: 8px; overflow-x: auto; margin: 0 0 12px;
+    background: #1f2937; color: #f3f4f6;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Dashboard is disabled</h1>
+    <p>nahiarhdlog is collecting logs, but no <code>dashboard_token</code> was set, so the dashboard stays off.</p>
+    <pre>observe(
+    app,
+    dashboard_token="long-random-secret",
+)</pre>
+    <p>Then reopen <code>__PREFIX__/</code> and enter the token on the lock screen.</p>
+  </div>
+</body>
+</html>
+"""
+
+
+def create_setup_router(prefix: str) -> APIRouter:
+    """Build the no-token setup router mounted at `prefix`.
+
+    Tells a new user how to enable the dashboard instead of serving a
+    bare 404. Carries no data and exposes no API.
+    """
+    router = APIRouter()
+    page = _SETUP_PAGE.replace("__PREFIX__", html.escape(prefix, quote=True))
+
+    @router.get("", include_in_schema=False)
+    @router.get("/")
+    def setup() -> HTMLResponse:
+        return HTMLResponse(page, headers=_NO_STORE)
 
     return router
