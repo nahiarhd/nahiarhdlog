@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nahiarhdlog</title>
+<link rel="icon" href="static/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="static/styles.css">
 </head>
 <body>
@@ -13,11 +14,11 @@
     <span class="brand-name">nahiarhdlog</span>
     <span class="brand-version" id="version"></span>
   </div>
-  <nav class="tabs" aria-label="Views">
-    <button class="tab active" data-view="logs" type="button">Logs</button>
-    <button class="tab" data-view="errors" type="button">Errors</button>
-    <button class="tab" data-view="metrics" type="button">Metrics</button>
-    <button class="tab" data-view="trace" type="button">Trace</button>
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button class="tab active" role="tab" id="tab-logs" data-view="logs" type="button" aria-selected="true" aria-controls="view-logs" tabindex="0">Logs</button>
+    <button class="tab" role="tab" id="tab-errors" data-view="errors" type="button" aria-selected="false" aria-controls="view-errors" tabindex="-1">Errors</button>
+    <button class="tab" role="tab" id="tab-metrics" data-view="metrics" type="button" aria-selected="false" aria-controls="view-metrics" tabindex="-1">Metrics</button>
+    <button class="tab" role="tab" id="tab-trace" data-view="trace" type="button" aria-selected="false" aria-controls="view-trace" tabindex="-1">Trace</button>
   </nav>
   <div class="topbar-right">
     <span class="health" id="health" title="Collector queue / dropped events">
@@ -34,7 +35,7 @@
 <div class="banner hidden" id="banner" role="alert"></div>
 
 <main>
-  <section id="view-logs" class="view active" aria-label="Logs">
+  <section id="view-logs" class="view active" role="tabpanel" aria-labelledby="tab-logs" tabindex="0">
     <form id="log-filters" class="filters" autocomplete="off">
       <input type="search" id="f-text" placeholder="Search messages…" aria-label="Search messages">
       <select id="f-level" aria-label="Level">
@@ -47,10 +48,14 @@
         <option value="log">log</option><option value="request">request</option>
         <option value="error">error</option>
       </select>
-      <label class="live"><input type="checkbox" id="f-live"> Live tail</label>
+      <label class="live" id="live-label"><input type="checkbox" id="f-live"> Live tail</label>
       <button type="submit" class="btn primary">Apply</button>
       <button type="button" class="btn" id="f-clear">Clear</button>
     </form>
+    <div id="sig-chip" class="filter-chip hidden">
+      <span id="sig-chip-text" class="mono"></span>
+      <button type="button" id="sig-chip-clear" aria-label="Remove signature filter">×</button>
+    </div>
     <p class="meta" id="logs-meta"></p>
     <div class="table-wrap">
       <table id="logs-table">
@@ -65,12 +70,12 @@
     </div>
   </section>
 
-  <section id="view-errors" class="view" aria-label="Errors">
+  <section id="view-errors" class="view" role="tabpanel" aria-labelledby="tab-errors" tabindex="0">
     <p class="meta" id="errors-meta"></p>
     <div id="errors-list" class="cards"></div>
   </section>
 
-  <section id="view-metrics" class="view" aria-label="Metrics">
+  <section id="view-metrics" class="view" role="tabpanel" aria-labelledby="tab-metrics" tabindex="0">
     <div class="filters">
       <label>Window
         <select id="m-window">
@@ -87,22 +92,31 @@
       <figure class="chart-card">
         <figcaption>Requests &amp; errors</figcaption>
         <div id="chart-req"></div>
+        <div class="chart-legend" id="legend-req" hidden>
+          <span><i class="swatch accent"></i> Requests</span>
+          <span><i class="swatch danger"></i> Errors</span>
+        </div>
       </figure>
       <figure class="chart-card">
         <figcaption>Avg latency (ms)</figcaption>
         <div id="chart-lat"></div>
+        <div class="chart-legend" id="legend-lat" hidden>
+          <span><i class="swatch warn"></i> Avg ms</span>
+        </div>
       </figure>
     </div>
   </section>
 
-  <section id="view-trace" class="view" aria-label="Trace">
+  <section id="view-trace" class="view" role="tabpanel" aria-labelledby="tab-trace" tabindex="0">
     <form id="trace-form" class="filters" autocomplete="off">
       <input type="search" id="t-id" placeholder="trace id…" aria-label="Trace id" class="mono">
       <button type="submit" class="btn primary">Show trace</button>
     </form>
-    <ol id="trace-list" class="timeline"></ol>
+    <div id="trace-list"></div>
   </section>
 </main>
+
+<div id="chart-tip" class="chart-tip" hidden role="tooltip"></div>
 
 <dialog id="detail" aria-label="Event detail">
   <div class="dialog-head">

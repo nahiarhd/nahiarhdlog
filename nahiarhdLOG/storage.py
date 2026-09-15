@@ -216,25 +216,47 @@ class SQLiteStorage:
     def top_signatures(
         self, since: float | None = None, limit: int = 20
     ) -> list[dict[str, Any]]:
-        """Group errors by signature. Returns [{signature, count, last_ts}]."""
+        """Group errors by signature. Returns [{signature, count, last_ts, last_message}]."""
         limit = max(1, min(int(limit), _MAX_LIMIT))
-        sql = (
-            "SELECT COALESCE(json_extract(data, '$.signature'), '(unknown)') AS sig,"
-            " COUNT(*) AS n, MAX(ts) AS last_ts FROM events"
-            " WHERE type = 'error'"
-        )
+        where = "WHERE type = 'error'"
         params: list[Any] = []
         if since is not None:
-            sql += " AND ts >= ?"
+            where += " AND ts >= ?"
             params.append(since)
-        sql += " GROUP BY sig ORDER BY n DESC, last_ts DESC LIMIT ?"
+        sql = (
+            "SELECT g.sig AS sig, g.n AS n, g.last_ts AS last_ts, e.message AS last_message"
+            " FROM ("
+            "  SELECT COALESCE(json_extract(data, '$.signature'), '(unknown)') AS sig,"
+            "  COUNT(*) AS n, MAX(ts) AS last_ts, MAX(id) AS last_id"
+            f"  FROM events {where}"
+            "  GROUP BY sig ORDER BY n DESC, last_ts DESC LIMIT ?"
+            " ) g JOIN events e ON e.id = g.last_id"
+        )
         params.append(limit)
         with self._lock:
             rows = self._conn.execute(sql, params).fetchall()
         return [
-            {"signature": r["sig"], "count": r["n"], "last_ts": r["last_ts"]}
+            {
+                "signature": r["sig"],
+                "count": r["n"],
+                "last_ts": r["last_ts"],
+                "last_message": r["last_message"],
+            }
             for r in rows
         ]
+
+    def resolve_trace_id(self, prefix: str) -> str | None:
+        """Return the unique trace_id that starts with `prefix`, else None."""
+        if not prefix or len(prefix) < 8:
+            return None
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT DISTINCT trace_id FROM events WHERE trace_id LIKE ? LIMIT 2",
+                (prefix + "%",),
+            ).fetchall()
+        if len(rows) != 1:
+            return None
+        return rows[0]["trace_id"]
 
     def fetch_requests(
         self, since: float | None = None, until: float | None = None

@@ -157,13 +157,30 @@ def test_index_and_static_served(client_and_collector):
     r = client.get("/nahiarhdlog/", params={"token": TOKEN})
     assert r.status_code == 200
     assert "nahiarhdlog" in r.text
+    assert 'rel="icon"' in r.text
+    assert "static/favicon.svg" in r.text
+    assert 'role="tablist"' in r.text
+    assert 'role="tabpanel"' in r.text
     # Static assets are public (browsers can't token sub-resources); data is not.
     js = client.get("/nahiarhdlog/static/app.js")
     assert js.status_code == 200
     assert "javascript" in js.headers["content-type"]
+    assert "displayMessage" in js.text
+    assert "trace_id.slice(0, 12)" not in js.text
+    assert "activateTab" in js.text
+    assert "bindChartHover" in js.text
     css = client.get("/nahiarhdlog/static/styles.css")
     assert css.status_code == 200
     assert "text/css" in css.headers["content-type"]
+    ico = client.get("/nahiarhdlog/static/favicon.svg")
+    assert ico.status_code == 200
+    assert "svg" in ico.headers["content-type"]
+    assert b"<svg" in ico.content
+    lock = client.get("/nahiarhdlog/")
+    assert "static/favicon.svg" in lock.text
+    assert "static/styles.css" in lock.text
+    assert "nhl_theme" in lock.text
+    assert 'for="token"' in lock.text
 
 
 def test_static_traversal_blocked(client_and_collector):
@@ -210,7 +227,12 @@ def test_errors_top_trace_metrics_health(client_and_collector):
     q = {"token": TOKEN}
     top = client.get("/nahiarhdlog/api/errors/top", params=q).json()
     assert top == [
-        {"signature": "ValueError@x.py:9", "count": 2, "last_ts": pytest.approx(time.time(), abs=120)}
+        {
+            "signature": "ValueError@x.py:9",
+            "count": 2,
+            "last_ts": pytest.approx(time.time(), abs=120),
+            "last_message": "ValueError: worse",
+        }
     ]
     trace = client.get("/nahiarhdlog/api/traces/t1", params=q).json()
     assert trace["trace_id"] == "t1"

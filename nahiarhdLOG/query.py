@@ -81,6 +81,14 @@ def top_errors(
 def get_trace(
     storage: SQLiteStorage, trace_id: str, limit: int = 500
 ) -> list[dict[str, Any]]:
-    """All events of one trace, oldest first (v1: flat, single-service)."""
+    """All events of one trace, oldest first (v1: flat, single-service).
+
+    A unique prefix (≥8 chars) resolves to the full id so a truncated
+    copy from the table still works.
+    """
     rows = search_logs(storage, LogFilter(trace_id=trace_id, limit=limit))
+    if not rows:
+        resolved = storage.resolve_trace_id(trace_id)
+        if resolved and resolved != trace_id:
+            rows = search_logs(storage, LogFilter(trace_id=resolved, limit=limit))
     return list(reversed(rows))

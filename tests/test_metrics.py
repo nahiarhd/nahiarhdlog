@@ -87,3 +87,4 @@ def test_get_trace_oldest_first(storage):
     )
     trace = get_trace(storage, tid)
     assert [e["message"] for e in trace] == ["r", "l", "e"]
+    assert [e["message"] for e in get_trace(storage, tid[:12])] == ["r", "l", "e"]

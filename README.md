@@ -229,7 +229,7 @@ Implement these 9 members (mirror `SQLiteStorage` in `storage.py`):
 | `insert_many(events) -> int` | Persist a batch; called from the writer thread |
 | `search(...) -> list[dict]` | Newest-first events with text/level/type/trace/signature/time filters + limit/offset |
 | `count(...) -> int` | Same filters, returns the match count |
-| `top_signatures(since, limit) -> list` | `[{signature, count, last_ts}]` for the Errors tab |
+| `top_signatures(since, limit) -> list` | `[{signature, count, last_ts, last_message}]` for the Errors tab |
 | `fetch_requests(since, until) -> list` | Lightweight `[{ts, status, duration_ms}]` rows for metrics |
 | `get(event_id) -> dict \| None` | One event by id |
 | `purge() -> int` | Delete events older than retention; returns rows removed |
@@ -248,6 +248,7 @@ uv run --no-sync python scripts/probe_perf.py --n 10000
 
 ## Changelog
 
+- **0.6.0** — Dashboard scan pass: severity gutters, exception last-line in the table (not `Traceback…`), compact timestamps, full trace ids with copy, favicon. Live tail no longer flashes the table. Error cards show the last exception message and a dismissible signature chip. The Trace tab lists recent traces; truncated ids uniquely resolve. Metrics charts get a legend, time axis, theme colors, and hover tooltips. Tabs are a keyboard-accessible tablist; the lock screen uses the dashboard theme tokens. `top_signatures` now includes `last_message`.
 - **0.5.0** — Incoming W3C `traceparent` is reused as `trace_id` and echoed on the response with a new parent-id. Uncaught exceptions in `threading.Thread` are captured (`threading.excepthook`). Stdlib `extra=` fields are stored on the event. FAQ documents the SQLite WAL same-host limit.
 - **0.4.0** — `attach(db_path, source=...)` captures stdlib logs and uncaught exceptions in any process (Celery workers, cron, scripts) with no FastAPI app. Point it at the same SQLite file as `observe()` and the events show up in the existing dashboard. `source` is optional metadata, not a new event type.
 - **0.3.2** — The bare prefix redirects to the slashed dashboard URL (307, query preserved) instead of serving the page twice: `index.html` uses relative asset URLs, so only the slashed page renders correctly. Users only need to know `/nahiarhdlog`.

@@ -22,6 +22,7 @@ _MEDIA = {
     ".html": "text/html; charset=utf-8",
     ".js": "application/javascript",
     ".css": "text/css; charset=utf-8",
+    ".svg": "image/svg+xml",
 }
 _COOKIE_NAME = "nahiarhdlog_token"
 # Auth-dependent pages must never be cached: a cached index served after
@@ -182,7 +183,9 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
 
     @router.get("/api/traces/{trace_id}", dependencies=[authed])
     def trace(trace_id: str) -> dict[str, Any]:
-        return {"trace_id": trace_id, "events": get_trace(collector.storage, trace_id)}
+        events = get_trace(collector.storage, trace_id)
+        resolved = events[0]["trace_id"] if events and events[0].get("trace_id") else trace_id
+        return {"trace_id": resolved, "events": events}
 
     @router.get("/api/metrics/summary", dependencies=[authed])
     def metrics_summary(window: float = 300) -> dict[str, Any]:
