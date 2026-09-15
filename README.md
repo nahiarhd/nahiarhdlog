@@ -16,37 +16,72 @@ Embedded observability for FastAPI — searchable logs, error tracking, alerts, 
 - **Negligible overhead.** Requests enqueue a small dict (p95 ~0.04 ms); SQLite writes happen in batches on a background thread. The queue is bounded — when full, events drop with a visible counter instead of ever blocking a request.
 - **Framework-agnostic core.** FastAPI first; the core imports no web framework, so Flask/Django adapters can follow without changing it.
 
-## Install
+## New project setup
+
+Four steps. Nothing else is required for a FastAPI app.
+
+### 1. Install
 
 ```bash
-pip install nahiarhdlog
-# or: uv add nahiarhdlog
+uv add nahiarhdlog python-dotenv
+# or: pip install nahiarhdlog python-dotenv
 ```
 
-Requires Python ≥ 3.10. Events are stored in `.nahiarhdlog/nahiarhdlog.db` (SQLite, WAL mode, FTS5 search).
+Python ≥ 3.10. Logs land in `.nahiarhdlog/nahiarhdlog.db` (created automatically).
 
-## Quickstart
+### 2. Put a token in `.env`
+
+```bash
+# .env  — do not commit this file
+NAHILOG_TOKEN=change-me-to-a-long-random-string
+```
+
+nahiarhdlog **does not read `.env` for you.** Your app loads it and passes the value in. That way the same package works in every project.
+
+### 3. One call in your app
 
 ```python
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from nahiarhdLOG import observe
 
+load_dotenv()
+
 app = FastAPI()
-observe(app, dashboard_token="secret")  # logs + errors + metrics + dashboard
+observe(app, dashboard_token=os.environ.get("NAHILOG_TOKEN"))
 ```
 
-That's it. Every request, every stdlib log record, and every uncaught exception is now captured. Open `/nahiarhdlog/` and enter the token on the lock screen.
+That captures every request, every stdlib log, and every uncaught exception.
 
-Workers, cron jobs, and scripts have no FastAPI app — call `attach()` in that process with the same `db_path` so their logs land in the same dashboard:
+### 4. Run and open the dashboard
+
+```bash
+uv run uvicorn main:app --reload
+```
+
+Open `http://127.0.0.1:8000/nahiarhdlog/` and type the token from `.env`.
+
+No token set? Collection still runs; the URL shows a setup page instead of data.
+
+### Optional: a worker, cron job, or script
+
+A second process has no FastAPI app, so `observe()` does not apply. In **that** process, point at the same database:
 
 ```python
 from nahiarhdLOG import attach
-attach(".nahiarhdlog/nahiarhdlog.db")  # optional: source="embeddings"
+attach()  # same default path: .nahiarhdlog/nahiarhdlog.db
 ```
 
-Call it *in* the process that logs (after fork, if you use a prefork pool). Loguru does not go through stdlib: add `NahiarhdHandler(collector)` as a sink, same as the API process.
+Call it *in* the process that logs (after fork, if you use a prefork pool). Using [loguru](https://github.com/Delgan/loguru)? It does not go through stdlib — add the handler as a sink:
 
-Forgot `dashboard_token`? No 404: `observe()` logs a startup warning and the URL serves a setup page telling you how to enable the dashboard. Collection keeps running either way — only the dashboard is gated.
+```python
+from nahiarhdLOG import attach
+from nahiarhdLOG.handler import NahiarhdHandler
+
+collector = attach()
+logger.add(NahiarhdHandler(collector), format="{message}")
+```
 
 ## Features
 
@@ -145,6 +180,8 @@ uv run python examples/basic_app.py traffic --n 300
 Open `http://127.0.0.1:8000/nahiarhdlog/` with token `demo-token`.
 
 ## FAQ
+
+**Does nahiarhdlog read my `.env`?** No. Load it yourself (`load_dotenv()`, your env helper, or the platform's env) and pass `dashboard_token=` / `db_path=` in. The package never opens `.env`, so it behaves the same in every project.
 
 **Which Python versions?** 3.10+ (3.10, 3.11, 3.12 tested in CI).
 
