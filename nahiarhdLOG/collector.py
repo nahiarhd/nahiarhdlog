@@ -33,6 +33,7 @@ class Collector:
         queue_size: int = 10_000,
         alerter: Alerter | None = None,
         storage: SQLiteStorage | None = None,
+        default_data: dict[str, Any] | None = None,
     ) -> None:
         # Custom backends (e.g. Postgres) plug in here; anything duck-typed
         # like SQLiteStorage works. Default stays zero-infrastructure.
@@ -42,6 +43,7 @@ class Collector:
             else SQLiteStorage(db_path, retention_days=retention_days)
         )
         self.alerter = alerter
+        self._default_data = dict(default_data) if default_data else {}
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=queue_size)
         self._dropped = 0
         self._lock = threading.Lock()
@@ -70,6 +72,11 @@ class Collector:
 
     def emit(self, event: dict[str, Any]) -> bool:
         """Queue one event. Never blocks; returns False when dropped."""
+        if self._default_data:
+            event = {
+                **event,
+                "data": {**self._default_data, **(event.get("data") or {})},
+            }
         try:
             self._queue.put_nowait(event)
         except queue.Full:

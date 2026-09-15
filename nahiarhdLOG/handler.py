@@ -64,6 +64,16 @@ class NahiarhdHandler(logging.Handler):
             self.handleError(record)
 
 
+def ensure_handler(collector: Collector, level: int = logging.NOTSET) -> None:
+    """Attach a `NahiarhdHandler` to the root logger if this collector lacks one."""
+    root = logging.getLogger()
+    for handler in root.handlers:
+        if isinstance(handler, NahiarhdHandler) and handler.collector is collector:
+            handler.setLevel(level)
+            return
+    root.addHandler(NahiarhdHandler(collector, level=level))
+
+
 Excepthook = Callable[
     [type[BaseException], BaseException, TracebackType | None], Any
 ]
