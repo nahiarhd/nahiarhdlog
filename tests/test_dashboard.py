@@ -55,7 +55,9 @@ def test_missing_token_serves_setup_page(tmp_path):
         assert "/nahiarhdlog" in page.text
         # No data APIs without a token — and the old default prefix is gone.
         assert client.get("/nahiarhdlog/api/health").status_code == 404
-        assert client.get("/nahiarhdlog").status_code == 200
+        bare = client.get("/nahiarhdlog", follow_redirects=False)
+        assert bare.status_code == 307
+        assert bare.headers["location"] == "/nahiarhdlog/"
         assert client.get("/admin/logs/").status_code == 404
 
 
@@ -75,16 +77,17 @@ def test_page_without_token_returns_lock(client_and_collector):
     assert "locked" in r.text.lower()
 
 
-def test_index_served_with_and_without_trailing_slash(client_and_collector):
+def test_bare_prefix_redirects_to_slash(client_and_collector):
     client, _ = client_and_collector
-    for path in ("/nahiarhdlog", "/nahiarhdlog/"):
-        lock = client.get(path)
-        assert lock.status_code == 401
-        assert "text/html" in lock.headers["content-type"]
-        assert "locked" in lock.text.lower()
-        authed = client.get(path, params={"token": TOKEN})
-        assert authed.status_code == 200
-        assert "logs-table" in authed.text
+    bare = client.get("/nahiarhdlog", follow_redirects=False)
+    assert bare.status_code == 307
+    assert bare.headers["location"] == "/nahiarhdlog/"
+    with_token = client.get("/nahiarhdlog", params={"token": TOKEN}, follow_redirects=False)
+    assert with_token.status_code == 307
+    assert with_token.headers["location"] == f"/nahiarhdlog/?token={TOKEN}"
+    followed = client.get("/nahiarhdlog", params={"token": TOKEN})
+    assert followed.status_code == 200
+    assert "logs-table" in followed.text
 
 
 def test_api_without_token_is_json_401(client_and_collector):

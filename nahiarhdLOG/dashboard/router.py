@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 from .. import __version__
 from ..metrics import request_stats, timeseries
@@ -32,6 +32,18 @@ _NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache", "Expires": "0"}
 
 def _static_root() -> Path:
     return Path(str(resources.files("nahiarhdLOG.dashboard") / "static"))
+
+
+def _slash_redirect(request: Request) -> RedirectResponse:
+    """Redirect the bare prefix to the slashed page, keeping the query.
+
+    One canonical URL: index.html uses relative asset URLs, so only the
+    slashed page renders correctly. 307 keeps the method; the query is
+    preserved so ?token= bookmarks survive the hop.
+    """
+    path = request.url.path.rstrip("/") + "/"
+    query = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(f"{path}{query}", status_code=307)
 
 
 def _static_file(name: str, status_code: int = 200) -> FileResponse:
@@ -80,10 +92,10 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
     authed = Depends(_check)
     router = APIRouter()
 
-    # Served with and without the trailing slash: apps with
-    # redirect_slashes=False would 404 the bare prefix otherwise, and a
-    # redirect is one more round-trip for no benefit.
     @router.get("", include_in_schema=False)
+    def index_bare(request: Request) -> RedirectResponse:
+        return _slash_redirect(request)
+
     @router.get("/")
     def index(request: Request) -> FileResponse:
         return _page(request, "index.html")
@@ -248,6 +260,9 @@ def create_setup_router(prefix: str) -> APIRouter:
     page = _SETUP_PAGE.replace("__PREFIX__", html.escape(prefix, quote=True))
 
     @router.get("", include_in_schema=False)
+    def setup_bare(request: Request) -> RedirectResponse:
+        return _slash_redirect(request)
+
     @router.get("/")
     def setup() -> HTMLResponse:
         return HTMLResponse(page, headers=_NO_STORE)
