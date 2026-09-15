@@ -10,19 +10,10 @@ from typing import Any
 
 from ..alerter import Alerter, AlertSink, Rule
 from ..collector import DEFAULT_DB_PATH, Collector
-from ..handler import NahiarhdHandler, install_excepthook
+from ..handler import ensure_handler, install_excepthook
 from ..middleware import LoggingMiddleware
 
 logger = logging.getLogger(__name__)
-
-
-def _ensure_handler(collector: Collector, level: int) -> None:
-    root = logging.getLogger()
-    for h in root.handlers:
-        if isinstance(h, NahiarhdHandler) and h.collector is collector:
-            h.setLevel(level)
-            return
-    root.addHandler(NahiarhdHandler(collector, level=level))
 
 
 def observe(
@@ -61,7 +52,7 @@ def observe(
         sample_rate=sample_rate,
         skip_prefixes=tuple(skips),
     )
-    _ensure_handler(collector, level)
+    ensure_handler(collector, level)
     install_excepthook(collector)
     if dashboard_token:
         from ..dashboard.router import create_dashboard_router

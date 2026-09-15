@@ -37,6 +37,15 @@ observe(app, dashboard_token="secret")  # logs + errors + metrics + dashboard
 
 That's it. Every request, every stdlib log record, and every uncaught exception is now captured. Open `/nahiarhdlog/` and enter the token on the lock screen.
 
+Workers, cron jobs, and scripts have no FastAPI app — call `attach()` in that process with the same `db_path` so their logs land in the same dashboard:
+
+```python
+from nahiarhdLOG import attach
+attach(".nahiarhdlog/nahiarhdlog.db")  # optional: source="embeddings"
+```
+
+Call it *in* the process that logs (after fork, if you use a prefork pool). Loguru does not go through stdlib: add `NahiarhdHandler(collector)` as a sink, same as the API process.
+
 Forgot `dashboard_token`? No 404: `observe()` logs a startup warning and the URL serves a setup page telling you how to enable the dashboard. Collection keeps running either way — only the dashboard is gated.
 
 ## Features
@@ -147,7 +156,9 @@ Open `http://127.0.0.1:8000/nahiarhdlog/` with token `demo-token`.
 
 **What's the overhead?** Requests only enqueue a small dict; SQLite writes happen in batches on a background thread. Run `python scripts/probe_perf.py` to measure on your machine.
 
-**Flask / Django / plain scripts?** On the roadmap. The core (`collector`, `storage`, `query`, `alerter`, `metrics`) imports no web framework — only the thin `adapters/` layer does, enforced by an automated boundary test.
+**Celery / workers / scripts?** `attach(db_path)` in that process, same path as `observe()`. No app object, no new event type. Optional `source=` is stored on `data` for your own filtering; the dashboard does not special-case it.
+
+**Flask / Django / plain scripts?** Scripts can `attach()` today. Flask/Django HTTP adapters are on the roadmap. The core (`collector`, `storage`, `query`, `alerter`, `metrics`, `attach`) imports no web framework — only the thin `adapters/` layer does, enforced by an automated boundary test.
 
 **How do I disable the dashboard?** Omit `dashboard_token` (default): events are still collected, but the dashboard URL serves a setup notice instead of data.
 
@@ -196,6 +207,7 @@ uv run --no-sync python scripts/probe_perf.py --n 10000
 
 ## Changelog
 
+- **0.4.0** — `attach(db_path, source=...)` captures stdlib logs and uncaught exceptions in any process (Celery workers, cron, scripts) with no FastAPI app. Point it at the same SQLite file as `observe()` and the events show up in the existing dashboard. `source` is optional metadata, not a new event type.
 - **0.3.2** — The bare prefix redirects to the slashed dashboard URL (307, query preserved) instead of serving the page twice: `index.html` uses relative asset URLs, so only the slashed page renders correctly. Users only need to know `/nahiarhdlog`.
 - **0.3.1** — The dashboard page is served with and without the trailing slash, so `redirect_slashes=False` apps don't 404 the bare prefix. (Superseded by 0.3.2: the bare URL served a page with broken CSS/JS.)
 - **0.3.0** — Dashboard default moved from `/admin/logs` to `/nahiarhdlog` (pass `dashboard_prefix="/admin/logs"` to keep the old URL). No `dashboard_token` no longer 404s: `observe()` logs a startup warning and serves a setup page explaining how to enable the dashboard.
