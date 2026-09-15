@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import traceback
 from types import TracebackType
 from typing import Any, Callable
@@ -18,6 +19,35 @@ from .middleware import current_trace_id
 _MAX_MESSAGE = 8000
 # stdlib and loguru tracebacks both start with this header line.
 _TRACEBACK_MARKER = "Traceback (most recent call last)"
+# LogRecord fields that are not `extra=`. Source:
+# https://docs.python.org/3.12/library/logging.html#logrecord-attributes
+_RECORD_BUILTIN = frozenset(
+    {
+        "args",
+        "asctime",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "message",
+        "module",
+        "msecs",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "taskName",
+        "thread",
+        "threadName",
+    }
+)
 
 
 class NahiarhdHandler(logging.Handler):
@@ -44,6 +74,15 @@ class NahiarhdHandler(logging.Handler):
                 "lineno": record.lineno,
                 "func": record.funcName,
             }
+            for key, value in record.__dict__.items():
+                if (
+                    key in _RECORD_BUILTIN
+                    or key in data
+                    or key.startswith("_")
+                    or not isinstance(value, (str, int, float, bool, type(None)))
+                ):
+                    continue
+                data[key] = value
             if has_exc:
                 exc_type = record.exc_info[0]  # type: ignore[index]
                 exc_name = getattr(exc_type, "__name__", str(exc_type))
@@ -79,9 +118,43 @@ Excepthook = Callable[
 ]
 
 
+def _emit_uncaught(
+    collector: Collector,
+    exc_type: type[BaseException] | None,
+    exc_value: BaseException | None,
+    exc_tb: TracebackType | None,
+    origin: str,
+) -> None:
+    if exc_type is None:
+        return
+    exc_name = getattr(exc_type, "__name__", str(exc_type))
+    sig, _, _ = from_traceback(exc_name, exc_tb)
+    collector.emit(
+        {
+            "type": "error",
+            "level": "CRITICAL",
+            "message": "".join(
+                traceback.format_exception(exc_type, exc_value, exc_tb)
+            )[:_MAX_MESSAGE],
+            "trace_id": current_trace_id.get(),
+            "data": {
+                "origin": origin,
+                "exc_type": exc_name,
+                "signature": sig,
+            },
+        }
+    )
+
+
 def install_excepthook(collector: Collector) -> Excepthook:
-    """Capture uncaught exceptions, then chain to the previous hook."""
+    """Capture uncaught exceptions in the main thread and in `threading.Thread`.
+
+    `sys.excepthook` does not see `Thread.run` failures; `threading.excepthook`
+    does (Python 3.8+). Source:
+    https://docs.python.org/3.12/library/threading.html#threading.excepthook
+    """
     previous = sys.excepthook
+    previous_thread = threading.excepthook
 
     def hook(
         exc_type: type[BaseException],
@@ -89,25 +162,26 @@ def install_excepthook(collector: Collector) -> Excepthook:
         exc_tb: TracebackType | None,
     ) -> Any:
         try:
-            exc_name = getattr(exc_type, "__name__", str(exc_type))
-            sig, _, _ = from_traceback(exc_name, exc_tb)
-            collector.emit(
-                {
-                    "type": "error",
-                    "level": "CRITICAL",
-                    "message": "".join(
-                        traceback.format_exception(exc_type, exc_value, exc_tb)
-                    )[:_MAX_MESSAGE],
-                    "trace_id": current_trace_id.get(),
-                    "data": {
-                        "origin": "excepthook",
-                        "exc_type": exc_name,
-                        "signature": sig,
-                    },
-                }
-            )
+            _emit_uncaught(collector, exc_type, exc_value, exc_tb, "excepthook")
         finally:
             return previous(exc_type, exc_value, exc_tb)
 
+    def thread_hook(args: threading.ExceptHookArgs) -> None:
+        # Spec: SystemExit from a thread is silently ignored by the default hook.
+        if args.exc_type is SystemExit:
+            previous_thread(args)
+            return
+        try:
+            _emit_uncaught(
+                collector,
+                args.exc_type,
+                args.exc_value,
+                args.exc_traceback,
+                "thread_excepthook",
+            )
+        finally:
+            previous_thread(args)
+
     sys.excepthook = hook
+    threading.excepthook = thread_hook
     return previous

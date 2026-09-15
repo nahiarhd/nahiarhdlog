@@ -89,6 +89,22 @@ def test_handler_skips_second_traceback_when_preformatted(collector):
     assert rows[0]["data"]["signature"].startswith("KeyError@test_handler.py:")
 
 
+def test_handler_keeps_stdlib_extra(collector):
+    handler = NahiarhdHandler(collector)
+    log = logging.getLogger("nahiarhdlog.test.extra")
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
+    try:
+        log.info("with-extra", extra={"user_id": "u-9", "task_id": 12})
+    finally:
+        log.removeHandler(handler)
+    assert collector.flush()
+    rows = collector.storage.search(text="with-extra")
+    assert rows[0]["data"]["user_id"] == "u-9"
+    assert rows[0]["data"]["task_id"] == 12
+    assert rows[0]["data"]["logger"] == "nahiarhdlog.test.extra"
+
+
 def test_handler_attaches_trace_id(collector):
     handler = NahiarhdHandler(collector)
     log = logging.getLogger("nahiarhdlog.test.trace")
@@ -103,6 +119,27 @@ def test_handler_attaches_trace_id(collector):
     assert collector.flush()
     rows = collector.storage.search(text="traced-message")
     assert rows[0]["trace_id"] == "trace-abc"
+
+
+def test_thread_excepthook_captures(collector, monkeypatch):
+    import threading
+
+    chained = []
+    monkeypatch.setattr(threading, "excepthook", lambda args: chained.append(args))
+    install_excepthook(collector)
+
+    def boom() -> None:
+        raise RuntimeError("thread-hook-marker")
+
+    thread = threading.Thread(target=boom)
+    thread.start()
+    thread.join()
+    assert collector.flush()
+    assert chained, "previous threading.excepthook was not chained"
+    rows = collector.storage.search(text="thread-hook-marker")
+    assert len(rows) == 1
+    assert rows[0]["type"] == "error"
+    assert rows[0]["data"]["origin"] == "thread_excepthook"
 
 
 def test_excepthook_chains_and_captures(collector, monkeypatch):
