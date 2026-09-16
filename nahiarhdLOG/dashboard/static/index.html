@@ -120,8 +120,14 @@
 
 <dialog id="detail" aria-label="Event detail">
   <div class="dialog-head">
-    <strong id="detail-title">Event</strong>
-    <button type="button" class="btn" id="detail-close">Close</button>
+    <div class="dialog-head-left">
+      <div id="detail-badge-bar" class="detail-badges"></div>
+      <strong id="detail-title">Event</strong>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn small" id="detail-trace-btn" hidden>View trace</button>
+      <button type="button" class="btn small" id="detail-close">Close</button>
+    </div>
   </div>
   <div id="detail-body"></div>
 </dialog>

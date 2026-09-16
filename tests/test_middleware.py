@@ -83,6 +83,8 @@ def test_exception_yields_error_and_500_request(app_and_collector):
     assert collector.flush()
     errors = collector.storage.search(event_type="error")
     assert any("fail-marker" in e["message"] for e in errors)
+    assert errors[0]["data"]["exc_type"] == "RuntimeError"
+    assert errors[0]["data"]["exc_message"] == "fail-marker"
     reqs = [e for e in collector.storage.search(event_type="request") if e["data"].get("status") == 500]
     assert reqs, "expected a 500 request event"
     trace_ids = {e["trace_id"] for e in errors} | {e["trace_id"] for e in reqs}

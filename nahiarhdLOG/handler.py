@@ -13,10 +13,10 @@ from types import TracebackType
 from typing import Any, Callable
 
 from .collector import Collector
-from .grouping import from_traceback, signature
+from .grouping import DEFAULT_MAX_MESSAGE, from_traceback, signature, truncate_message
 from .middleware import current_trace_id
 
-_MAX_MESSAGE = 8000
+_MAX_MESSAGE = DEFAULT_MAX_MESSAGE
 # stdlib and loguru tracebacks both start with this header line.
 _TRACEBACK_MARKER = "Traceback (most recent call last)"
 # LogRecord fields that are not `extra=`. Source:
@@ -87,6 +87,9 @@ class NahiarhdHandler(logging.Handler):
                 exc_type = record.exc_info[0]  # type: ignore[index]
                 exc_name = getattr(exc_type, "__name__", str(exc_type))
                 data["exc_type"] = exc_name
+                exc_val = record.exc_info[1]
+                if exc_val is not None:
+                    data["exc_message"] = str(exc_val)
                 data["signature"] = signature(
                     exc_name, record.pathname, record.lineno
                 )
@@ -94,7 +97,7 @@ class NahiarhdHandler(logging.Handler):
                 {
                     "type": "error" if is_error else "log",
                     "level": record.levelname,
-                    "message": message[:_MAX_MESSAGE],
+                    "message": truncate_message(message, _MAX_MESSAGE),
                     "trace_id": current_trace_id.get(),
                     "data": data,
                 }
@@ -129,17 +132,17 @@ def _emit_uncaught(
         return
     exc_name = getattr(exc_type, "__name__", str(exc_type))
     sig, _, _ = from_traceback(exc_name, exc_tb)
+    raw_tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
     collector.emit(
         {
             "type": "error",
             "level": "CRITICAL",
-            "message": "".join(
-                traceback.format_exception(exc_type, exc_value, exc_tb)
-            )[:_MAX_MESSAGE],
+            "message": truncate_message(raw_tb, _MAX_MESSAGE),
             "trace_id": current_trace_id.get(),
             "data": {
                 "origin": origin,
                 "exc_type": exc_name,
+                "exc_message": str(exc_value) if exc_value is not None else "",
                 "signature": sig,
             },
         }

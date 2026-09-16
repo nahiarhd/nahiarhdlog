@@ -13,7 +13,7 @@ from contextvars import ContextVar
 from typing import Any, Awaitable, Callable, MutableMapping
 
 from .collector import Collector
-from .grouping import from_traceback
+from .grouping import from_traceback, truncate_message
 from .tracecontext import (
     format_traceparent,
     new_span_id,
@@ -86,18 +86,20 @@ class LoggingMiddleware:
             duration_ms = (time.perf_counter() - start) * 1000
             exc_name = type(exc).__name__
             sig, _, _ = from_traceback(exc_name, exc.__traceback__)
+            raw_tb = "".join(
+                traceback.format_exception(type(exc), exc, exc.__traceback__)
+            )
             self.collector.emit(
                 {
                     "type": "error",
                     "level": "CRITICAL",
-                    "message": "".join(
-                        traceback.format_exception(type(exc), exc, exc.__traceback__)
-                    )[-8000:],
+                    "message": truncate_message(raw_tb),
                     "trace_id": trace_id,
                     "data": {
                         "method": scope.get("method"),
                         "path": scope.get("path"),
                         "exc_type": exc_name,
+                        "exc_message": str(exc),
                         "signature": sig,
                     },
                 }

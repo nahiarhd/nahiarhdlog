@@ -214,6 +214,8 @@ td.msg .dur, .timeline .m .dur { color: var(--muted); font-family: var(--mono); 
 td.msg .chip, .timeline .m .chip { margin-right: 4px; vertical-align: 1px; }
 td.msg .name, .timeline .m .name { font-weight: 600; }
 td.msg .id, .timeline .m .id { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+td.msg .exc-type { font-weight: 650; color: var(--danger); font-family: var(--mono); }
+td.msg .exc-msg { color: var(--text); }
 
 /* Pager */
 .pager { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
@@ -315,21 +317,77 @@ td.msg .id, .timeline .m .id { font-family: var(--mono); font-size: 12px; color:
 
 /* Dialog */
 dialog {
-  border: 1px solid var(--border); border-radius: 10px; padding: 0;
+  border: 1px solid var(--border); border-radius: 12px; padding: 0;
   background: var(--surface); color: var(--text);
-  width: min(760px, 94vw); max-height: 86vh;
+  width: min(840px, 95vw); max-height: 88vh;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
 }
 dialog::backdrop { background: rgba(0, 0, 0, .45); }
 .dialog-head {
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
   padding: 12px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface-2); border-radius: 12px 12px 0 0;
 }
-#detail-body { padding: 12px 16px 16px; overflow: auto; }
-#detail-body pre {
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
-  padding: 10px 12px; font-size: 12.5px; overflow-x: auto; white-space: pre-wrap;
-  overflow-wrap: anywhere; margin: 8px 0;
+.dialog-head-left {
+  display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;
 }
+.dialog-actions {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+#detail-title {
+  font-size: 14.5px; font-weight: 700; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 480px;
+}
+.detail-badges { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+#detail-body { padding: 14px 16px 18px; overflow: auto; max-height: calc(88vh - 56px); }
+
+/* Detail Error Card */
+.detail-error-card {
+  background: var(--danger-soft); border: 1px solid var(--danger);
+  border-left-width: 4px; border-radius: 8px; padding: 12px 14px;
+  margin-bottom: 14px; display: grid; gap: 6px;
+}
+.detail-error-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+}
+.detail-error-title {
+  font-size: 14.5px; font-weight: 700; color: var(--danger); font-family: var(--mono);
+}
+.detail-error-msg {
+  font-size: 13.5px; color: var(--text); font-weight: 500; word-break: break-word; line-height: 1.45;
+}
+
+/* Detail Section & Traceback */
+.detail-section {
+  margin-top: 14px; display: grid; gap: 6px;
+}
+.detail-section-head {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.section-label {
+  font-size: 11.5px; font-weight: 650; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.copy-section-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.copy-section-btn.copied {
+  color: var(--ok); border-color: var(--ok); background: var(--ok-soft);
+}
+.traceback-block {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+  overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0;
+  max-height: 440px;
+}
+.tb-frame { color: var(--accent); font-weight: 600; }
+.tb-exc { color: var(--danger); font-weight: 700; background: var(--danger-soft); padding: 1px 4px; border-radius: 3px; }
+.tb-var { color: var(--muted); opacity: 0.85; }
+.tb-trunc {
+  display: block; text-align: center; color: var(--warn); font-weight: 600;
+  background: var(--warn-soft); padding: 4px 8px; border-radius: 4px; margin: 6px 0;
+}
+
 .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 13px; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }

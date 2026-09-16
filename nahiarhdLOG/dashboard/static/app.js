@@ -35,17 +35,71 @@
     if (d.getFullYear() === now.getFullYear()) return md + " " + clock;
     return d.getFullYear() + "/" + md + " " + clock;
   }
+  function formatTraceback(text) {
+    if (!text) return "";
+    var lines = String(text).split("\n");
+    var hasTraceback = lines.some(function (l) { return l.indexOf("Traceback") !== -1; });
+    if (!hasTraceback) return esc(text);
+    return lines.map(function (line) {
+      var escaped = esc(line);
+      if (/^\s*File\s+["'].*["'],\s+line\s+\d+/.test(line)) {
+        return "<span class='tb-frame'>" + escaped + "</span>";
+      }
+      if (/^\[\.\.\..*truncated.*\]$/.test(line.trim())) {
+        return "<span class='tb-trunc'>" + escaped + "</span>";
+      }
+      if (/^\s*(?:\|\s*)*->/.test(line)) {
+        return "<span class='tb-var'>" + escaped + "</span>";
+      }
+      if (/^([a-zA-Z0-9_.]*(?:Error|Exception|Exit|Interrupt|Fault|Warning|Disconnect|Notice|Cancel)[a-zA-Z0-9_]*)(?::.*)?$/.test(line.trim())) {
+        return "<span class='tb-exc'>" + escaped + "</span>";
+      }
+      return escaped;
+    }).join("\n");
+  }
   function displayMessage(e) {
     var raw = String(e.message == null ? "" : e.message);
     var d = e.data || {};
     if (e.type === "error") {
-      var last = "";
+      if (d.exc_type) {
+        var msg = d.exc_message ? String(d.exc_message).trim() : "";
+        if (msg) {
+          if (msg.indexOf(d.exc_type) === 0) return msg;
+          return d.exc_type + ": " + msg;
+        }
+      }
       var lines = raw.split("\n");
       for (var i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].trim()) { last = lines[i].trim(); break; }
+        var line = lines[i].trim();
+        if (!line) continue;
+        if (line.indexOf("Traceback (most recent call last)") === 0) continue;
+        if (/^(?:The above exception|During handling of the above)/.test(line)) continue;
+        if (/^[\|\-\+\>\s]*\^+\s*$/.test(line)) continue;
+        if (/^(?:\|?\s*->\s*|<st\b)/.test(line)) continue;
+        if (/^File\s+["'].*["'],\s+line\s+\d+/.test(line)) continue;
+        if (/^\[\.\.\..*truncated.*\]$/.test(line)) continue;
+
+        var excMatch = line.match(/^([a-zA-Z0-9_.]*(?:Error|Exception|Exit|Interrupt|Fault|Warning|Disconnect|Notice|Cancel)[a-zA-Z0-9_]*)(?::\s*(.*))?$/);
+        if (excMatch) return line;
+
+        var colonMatch = line.match(/^([A-Z][A-Za-z0-9_]+):\s+(.+)$/);
+        if (colonMatch) return line;
       }
-      if (last && last.indexOf("Traceback (most recent call last)") !== 0) return last;
-      return d.signature || d.exc_type || last || raw.split("\n")[0];
+
+      var first = lines[0].trim();
+      if (first && first.indexOf("Traceback") !== 0) {
+        var cleanFirst = first.replace(/:\s*%[sdr]$/, "").replace(/%[sdr]$/, "").trim();
+        if (cleanFirst) {
+          if (d.exc_type && cleanFirst.indexOf(d.exc_type) === -1) {
+            return d.exc_type + ": " + cleanFirst;
+          }
+          return cleanFirst;
+        }
+      }
+      if (d.exc_type) return d.exc_type;
+      if (d.signature) return d.signature;
+      if (first) return first;
+      return "Error";
     }
     return raw.split("\n")[0];
   }
@@ -224,8 +278,20 @@
     }
     return parts.join(" ");
   }
+  function errorMsgHtml(e) {
+    var raw = displayMessage(e);
+    var colonIdx = raw.indexOf(":");
+    if (colonIdx !== -1 && colonIdx < 60) {
+      var exc = raw.slice(0, colonIdx).trim();
+      var rest = raw.slice(colonIdx + 1).trim();
+      return "<strong class='exc-type'>" + esc(exc) + "</strong>" + (rest ? ": <span class='exc-msg'>" + esc(rest) + "</span>" : "");
+    }
+    return "<strong class='exc-type'>" + esc(raw) + "</strong>";
+  }
   function msgHtml(e) {
-    return e.type === "request" ? requestMsgHtml(e) : logMsgHtml(e);
+    if (e.type === "request") return requestMsgHtml(e);
+    if (e.type === "error") return errorMsgHtml(e);
+    return logMsgHtml(e);
   }
   function logRowHtml(e) {
     var traceCell = e.trace_id
@@ -390,34 +456,97 @@
   function openDetail(id) {
     api("/logs/" + id).then(function (e) {
       var d = e.data || {};
-      var head, rows = [];
-      function add(k, v) {
+      var head = "", rows = [];
+      function add(k, v, mono) {
         if (v === null || v === undefined || v === "") return;
-        rows.push("<dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd>");
+        var val = mono ? "<span class='mono'>" + esc(v) + "</span>" : esc(v);
+        rows.push("<dt>" + esc(k) + "</dt><dd>" + val + "</dd>");
       }
+
+      var badgesHtml = "";
+      var errBanner = "";
       if (e.type === "request") {
-        head = esc(d.method || "?") + " " + esc(d.path || "?") +
-          (d.status != null ? " " + statusChip(d.status) : "");
+        head = esc(d.method || "?") + " " + esc(d.path || "?");
+        if (d.status != null) badgesHtml += statusChip(d.status) + " ";
+        if (d.method) badgesHtml += methodChip(d.method);
         add("time", fmtTime(e.ts));
         add("duration", d.duration_ms == null ? null : d.duration_ms + " ms");
-        add("query", d.query ? "?" + d.query : null);
-        add("client", d.client);
+        add("query", d.query ? "?" + d.query : null, true);
+        add("client", d.client, true);
         add("user agent", d.user_agent);
-      } else {
-        head = msgHtml(e) + (e.level ? " " + chip(e.level) : "");
+      } else if (e.type === "error") {
+        var summary = displayMessage(e);
+        head = esc(d.exc_type || summary);
+        if (e.level) badgesHtml += chip(e.level) + " ";
+        badgesHtml += chip("error", "error type");
         add("time", fmtTime(e.ts));
-        add("signature", d.signature);
-        add("logger", d.logger);
-        add("location", d.pathname ? d.pathname + ":" + d.lineno : null);
-        if (d.method) add("http", d.method + " " + (d.path || ""));
+        add("signature", d.signature, true);
+        add("logger", d.logger, true);
+        add("location", d.pathname ? d.pathname + ":" + d.lineno : null, true);
+        if (d.method) add("http", d.method + " " + (d.path || ""), true);
+        if (d.origin) add("origin", d.origin, true);
+
+        var reason = d.exc_message || (summary.indexOf(":") !== -1 ? summary.slice(summary.indexOf(":") + 1).trim() : "");
+        errBanner = "<div class='detail-error-card'>" +
+          "<div class='detail-error-head'>" +
+            "<span class='detail-error-title'>" + esc(d.exc_type || "Error") + "</span>" +
+            (d.signature ? "<span class='chip mono'>" + esc(d.signature) + "</span>" : "") +
+          "</div>" +
+          (reason ? "<div class='detail-error-msg'>" + esc(reason) + "</div>" : "") +
+        "</div>";
+      } else {
+        head = esc(displayMessage(e));
+        if (e.level) badgesHtml += chip(e.level) + " ";
+        badgesHtml += chip(e.type, e.type + " type");
+        add("time", fmtTime(e.ts));
+        add("logger", d.logger, true);
+        add("location", d.pathname ? d.pathname + ":" + d.lineno : null, true);
       }
+
+      var standardKeys = ["method", "path", "query", "status", "duration_ms", "client", "user_agent", "signature", "logger", "pathname", "lineno", "func", "exc_type", "exc_message", "origin"];
+      Object.keys(d).forEach(function (k) {
+        if (standardKeys.indexOf(k) === -1 && d[k] != null && typeof d[k] !== "object") {
+          add(k, String(d[k]), true);
+        }
+      });
+
+      if (e.trace_id) {
+        add("trace id", e.trace_id, true);
+      }
+
+      var traceActionBtn = $("detail-trace-btn");
+      if (traceActionBtn) {
+        if (e.trace_id) {
+          traceActionBtn.hidden = false;
+          traceActionBtn.setAttribute("data-opentrace", e.trace_id);
+        } else {
+          traceActionBtn.hidden = true;
+        }
+      }
+
       $("detail-title").innerHTML = head;
-      var traceBtn = e.trace_id
-        ? "<p><button type='button' class='btn small' data-opentrace='" + esc(e.trace_id) +
-          "'>View full trace</button></p>"
-        : "";
-      var msg = e.type === "request" ? "" : "<pre>" + esc(e.message) + "</pre>";
-      $("detail-body").innerHTML = traceBtn + "<dl class='kv'>" + rows.join("") + "</dl>" + msg;
+      var badgeBar = $("detail-badge-bar");
+      if (badgeBar) badgeBar.innerHTML = badgesHtml;
+
+      var contentSection = "";
+      if (e.message && e.type !== "request") {
+        var isTb = e.message.indexOf("Traceback") !== -1;
+        var sectionTitle = isTb ? "Traceback" : "Message";
+        contentSection = "<div class='detail-section'>" +
+          "<div class='detail-section-head'>" +
+            "<span class='section-label'>" + sectionTitle + "</span>" +
+            "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+              COPY_ICON + " Copy " + sectionTitle.toLowerCase() +
+            "</button>" +
+          "</div>" +
+          "<pre class='traceback-block'>" + (isTb ? formatTraceback(e.message) : esc(e.message)) + "</pre>" +
+        "</div>";
+      }
+
+      $("detail-body").innerHTML = errBanner +
+        "<dl class='kv'>" + rows.join("") + "</dl>" +
+        contentSection;
+
       $("detail").showModal();
       $("detail-close").focus();
     }).catch(function (err) {
@@ -429,6 +558,23 @@
     if (e.target === $("detail")) { $("detail").close(); return; }
     var b = e.target.closest("[data-opentrace]");
     if (b) { $("detail").close(); openTrace(b.getAttribute("data-opentrace")); }
+  });
+  $("detail-body").addEventListener("click", function (e) {
+    var copyBtn = e.target.closest("[data-copy-pre]");
+    if (copyBtn) {
+      var pre = $("detail-body").querySelector("pre");
+      if (pre && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pre.textContent).then(function () {
+          copyBtn.classList.add("copied");
+          var old = copyBtn.innerHTML;
+          copyBtn.innerHTML = "✓ Copied!";
+          setTimeout(function () {
+            copyBtn.innerHTML = old;
+            copyBtn.classList.remove("copied");
+          }, 1500);
+        }).catch(function () {});
+      }
+    }
   });
 
   /* Errors */

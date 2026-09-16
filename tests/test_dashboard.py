@@ -276,3 +276,17 @@ def test_router_requires_token(tmp_path):
             create_dashboard_router(collector, "")
     finally:
         collector.stop()
+
+
+def test_dashboard_static_has_enhanced_error_handling(client_and_collector):
+    client, _ = client_and_collector
+    js = client.get("/nahiarhdlog/static/app.js")
+    assert "formatTraceback" in js.text
+    assert "detail-error-card" in js.text
+    assert "copy-section-btn" in js.text
+    css = client.get("/nahiarhdlog/static/styles.css")
+    assert "detail-error-card" in css.text
+    assert "traceback-block" in css.text
+    assert "tb-frame" in css.text
+    assert "tb-exc" in css.text
+

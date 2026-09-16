@@ -62,6 +62,8 @@ def test_handler_marks_exception_as_error(collector):
     assert len(rows) == 1
     assert rows[0]["type"] == "error"
     assert "Traceback" in rows[0]["message"]
+    assert rows[0]["data"]["exc_type"] == "ValueError"
+    assert rows[0]["data"]["exc_message"] == "boom-marker"
 
 
 def test_handler_skips_second_traceback_when_preformatted(collector):
