@@ -59,6 +59,8 @@ class NahiarhdHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
+            if record.name.startswith("nahiarhdLOG"):
+                return
             message = record.getMessage()
             has_exc = bool(record.exc_info and record.exc_info[0] is not None)
             if has_exc and _TRACEBACK_MARKER not in message:

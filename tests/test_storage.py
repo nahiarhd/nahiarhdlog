@@ -1,5 +1,6 @@
 import inspect
 import sqlite3
+import threading
 import time
 
 import pytest
@@ -168,3 +169,79 @@ def test_collector_accepts_custom_storage():
     c.stop()
     assert [e["message"] for e in fake.events] == ["via-fake"]
     assert fake.closed
+
+
+def test_storage_insert_retry_on_lock(tmp_path):
+    db_path = str(tmp_path / "lock_test.db")
+    s = SQLiteStorage(db_path, timeout=1.0)
+    try:
+        conn2 = sqlite3.connect(
+            db_path, timeout=1.0, check_same_thread=False, isolation_level=None
+        )
+        try:
+            conn2.execute("BEGIN IMMEDIATE")
+
+            def release_lock():
+                time.sleep(0.08)
+                conn2.execute("COMMIT")
+
+            t = threading.Thread(target=release_lock)
+            t.start()
+            count = s.insert_many([_event("concurrent_msg")])
+            t.join()
+            assert count == 1
+            assert s.count(text="concurrent_msg") == 1
+        finally:
+            conn2.close()
+    finally:
+        s.close()
+
+
+class _FailingStorage(_FakeStorage):
+    def __init__(self) -> None:
+        super().__init__()
+        self.should_fail = True
+
+    def insert_many(self, events):
+        if self.should_fail:
+            raise sqlite3.OperationalError("database is locked")
+        return super().insert_many(events)
+
+
+def test_collector_resilient_to_storage_crash():
+    storage = _FailingStorage()
+    c = Collector(storage=storage).start()
+    try:
+        c.emit(_event("fail_me"))
+        c.flush()
+        assert c._thread.is_alive()
+        assert c.dropped == 1
+
+        storage.should_fail = False
+        c.emit(_event("recover_me"))
+        c.flush()
+        assert c._thread.is_alive()
+        assert any(e["message"] == "recover_me" for e in storage.events)
+    finally:
+        c.stop()
+
+
+def test_handler_ignores_internal_nahiarhdlog_logs():
+    import logging
+    from nahiarhdLOG.handler import NahiarhdHandler
+
+    fake = _FakeStorage()
+    c = Collector(storage=fake)
+    handler = NahiarhdHandler(c)
+    record = logging.LogRecord(
+        name="nahiarhdLOG.collector",
+        level=logging.WARNING,
+        pathname="collector.py",
+        lineno=100,
+        msg="internal warning",
+        args=(),
+        exc_info=None,
+    )
+    handler.emit(record)
+    assert c.queued == 0
+

@@ -5,6 +5,7 @@ Framework-agnostic: this module must never import FastAPI/Starlette.
 
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 import time
@@ -14,6 +15,8 @@ from .storage import SQLiteStorage
 
 if TYPE_CHECKING:
     from .alerter import Alerter
+
+logger = logging.getLogger(__name__)
 
 _FLUSH_INTERVAL = 0.2  # seconds
 _BATCH_SIZE = 500
@@ -126,7 +129,16 @@ class Collector:
             if batch and (
                 len(batch) >= _BATCH_SIZE or now - last_flush >= _FLUSH_INTERVAL
             ):
-                self._insert(batch)
+                try:
+                    self._insert(batch)
+                except Exception as exc:
+                    with self._lock:
+                        self._dropped += len(batch)
+                    logger.warning(
+                        "nahiarhdlog: failed to persist batch of %d events: %s",
+                        len(batch),
+                        exc,
+                    )
                 batch = []
                 last_flush = now
             if now - self._last_purge >= _PURGE_INTERVAL:
@@ -141,4 +153,13 @@ class Collector:
             except queue.Empty:
                 break
         if batch:
-            self._insert(batch)
+            try:
+                self._insert(batch)
+            except Exception as exc:
+                with self._lock:
+                    self._dropped += len(batch)
+                logger.warning(
+                    "nahiarhdlog: failed to persist shutdown batch of %d events: %s",
+                    len(batch),
+                    exc,
+                )

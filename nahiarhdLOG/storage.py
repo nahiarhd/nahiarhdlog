@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import sqlite3
 import threading
 import time
@@ -60,20 +61,31 @@ def _row_to_event(row: sqlite3.Row) -> dict[str, Any]:
 class SQLiteStorage:
     """Single-writer SQLite store. All methods are thread-safe."""
 
-    def __init__(self, path: str, retention_days: int = 7) -> None:
+    def __init__(
+        self, path: str, retention_days: int = 7, timeout: float = 15.0
+    ) -> None:
         self.path = path
         self.retention_days = retention_days
+        self.timeout = timeout
         parent = os.path.dirname(os.path.abspath(path))
         os.makedirs(parent, exist_ok=True)
-        self._conn = sqlite3.connect(path, check_same_thread=False)
+        self._conn = sqlite3.connect(
+            path,
+            timeout=timeout,
+            check_same_thread=False,
+            isolation_level=None,
+        )
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.Lock()
         with self._lock:
             self._conn.execute("PRAGMA journal_mode=WAL;")
-            self._conn.execute("PRAGMA busy_timeout=5000;")
+            self._conn.execute(f"PRAGMA busy_timeout={int(timeout * 1000)};")
             self._conn.executescript(_SCHEMA)
             self._fts = self._try_enable_fts()
-        self.purge()
+        try:
+            self.purge()
+        except Exception:
+            pass
 
     @property
     def fts_available(self) -> bool:
@@ -86,7 +98,9 @@ class SQLiteStorage:
         except sqlite3.OperationalError:
             return False
 
-    def insert_many(self, events: Iterable[dict[str, Any]]) -> int:
+    def insert_many(
+        self, events: Iterable[dict[str, Any]], max_retries: int = 5
+    ) -> int:
         rows = [
             (
                 e.get("ts", time.time()),
@@ -101,12 +115,35 @@ class SQLiteStorage:
         if not rows:
             return 0
         with self._lock:
-            self._conn.executemany(
-                "INSERT INTO events (ts, type, level, message, trace_id, data)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                rows,
-            )
-            self._conn.commit()
+            delay = 0.025
+            for attempt in range(max_retries):
+                try:
+                    self._conn.execute("BEGIN IMMEDIATE")
+                    try:
+                        self._conn.executemany(
+                            "INSERT INTO events (ts, type, level, message, trace_id, data)"
+                            " VALUES (?, ?, ?, ?, ?, ?)",
+                            rows,
+                        )
+                        self._conn.execute("COMMIT")
+                        return len(rows)
+                    except Exception:
+                        try:
+                            self._conn.execute("ROLLBACK")
+                        except Exception:
+                            pass
+                        raise
+                except sqlite3.OperationalError as exc:
+                    err_msg = str(exc).lower()
+                    if (
+                        "locked" in err_msg or "busy" in err_msg
+                    ) and attempt < max_retries - 1:
+                        sleep_time = delay * (1.5**attempt) + random.uniform(
+                            0.005, 0.025
+                        )
+                        time.sleep(sleep_time)
+                        continue
+                    raise
         return len(rows)
 
     def _filters(
@@ -289,15 +326,37 @@ class SQLiteStorage:
             ).fetchone()
         return _row_to_event(row) if row else None
 
-    def purge(self) -> int:
+    def purge(self, max_retries: int = 3) -> int:
         """Delete events older than the retention window. Returns rows removed."""
         if self.retention_days <= 0:
             return 0
         cutoff = time.time() - self.retention_days * 86400
         with self._lock:
-            cur = self._conn.execute("DELETE FROM events WHERE ts < ?", (cutoff,))
-            self._conn.commit()
-            return cur.rowcount
+            delay = 0.05
+            for attempt in range(max_retries):
+                try:
+                    self._conn.execute("BEGIN IMMEDIATE")
+                    try:
+                        cur = self._conn.execute(
+                            "DELETE FROM events WHERE ts < ?", (cutoff,)
+                        )
+                        self._conn.execute("COMMIT")
+                        return cur.rowcount
+                    except Exception:
+                        try:
+                            self._conn.execute("ROLLBACK")
+                        except Exception:
+                            pass
+                        raise
+                except sqlite3.OperationalError as exc:
+                    err_msg = str(exc).lower()
+                    if (
+                        "locked" in err_msg or "busy" in err_msg
+                    ) and attempt < max_retries - 1:
+                        time.sleep(delay * (attempt + 1) + random.uniform(0.01, 0.03))
+                        continue
+                    raise
+            return 0
 
     def close(self) -> None:
         with self._lock:

@@ -178,6 +178,9 @@
     var tip = $("chart-tip");
     if (tip) tip.hidden = true;
     if (opts.focus && t) t.focus();
+    if (view === "logs") {
+      if (state.logs.live) loadLogs({ silent: true });
+    }
     if (view === "errors") loadErrors();
     if (view === "metrics") loadMetrics();
     if (view === "trace") {
@@ -380,17 +383,26 @@
     $("f-level").value = "";
     $("f-type").value = "";
     state.logs = { text: "", level: "", type: "", signature: "", offset: 0, limit: 50, live: state.logs.live };
-    loadLogs();
+    if (state.logs.live) setLive(true);
+    else loadLogs();
   });
   $("sig-chip-clear").addEventListener("click", function () {
     state.logs.signature = "";
     state.logs.offset = 0;
-    loadLogs();
+    if (state.logs.live) setLive(true);
+    else loadLogs();
   });
   $("page-prev").addEventListener("click", function () {
-    setLive(false);
     state.logs.offset = Math.max(0, state.logs.offset - state.logs.limit);
-    loadLogs();
+    if (state.logs.offset === 0) {
+      var savedLive = null;
+      try { savedLive = localStorage.getItem("nhl_live"); } catch (e) { /* ignore */ }
+      if (savedLive !== "0") setLive(true);
+      else loadLogs();
+    } else {
+      setLive(false);
+      loadLogs();
+    }
   });
   $("page-next").addEventListener("click", function () {
     setLive(false);
@@ -401,10 +413,11 @@
     state.logs.live = on;
     $("f-live").checked = on;
     $("live-label").classList.toggle("on", on);
+    try { localStorage.setItem("nhl_live", on ? "1" : "0"); } catch (e) { /* ignore */ }
     if (state.liveTimer) { clearInterval(state.liveTimer); state.liveTimer = null; }
     if (on) {
       state.logs.offset = 0;
-      loadLogs();
+      loadLogs({ silent: true });
       state.liveTimer = setInterval(function () {
         if (document.hidden || state.view !== "logs") return;
         if ($("detail").open) return;
@@ -576,6 +589,16 @@
       }
     }
   });
+  $("detail").addEventListener("close", function () {
+    if (state.logs.live && state.view === "logs") {
+      loadLogs({ silent: true });
+    }
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && state.logs.live && state.view === "logs") {
+      loadLogs({ silent: true });
+    }
+  });
 
   /* Errors */
   function loadErrors() {
@@ -602,8 +625,7 @@
           (summary ? "<span class='msg' title='" + esc(summary) + "'>" + esc(summary) + "</span>" : "") +
           "<span class='sub'><span>last seen " + esc(fmtTime(r.last_ts)) + "</span></span>";
         b.addEventListener("click", function () {
-          setLive(false);
-          state.logs = { text: "", level: "", type: "error", signature: r.signature, offset: 0, limit: 50, live: false };
+          state.logs = { text: "", level: "", type: "error", signature: r.signature, offset: 0, limit: 50, live: state.logs.live };
           $("f-text").value = "";
           $("f-level").value = "";
           $("f-type").value = "error";
@@ -824,6 +846,13 @@
   });
   initToken();
   loadHealth();
-  loadLogs();
+  var savedLive = null;
+  try { savedLive = localStorage.getItem("nhl_live"); } catch (e) { /* ignore */ }
+  var startLive = savedLive === null ? true : savedLive === "1";
+  if (startLive) {
+    setLive(true);
+  } else {
+    loadLogs();
+  }
   setInterval(function () { if (!document.hidden) loadHealth(); }, 15000);
 })();
