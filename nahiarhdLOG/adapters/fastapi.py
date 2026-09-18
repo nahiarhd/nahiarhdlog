@@ -27,6 +27,8 @@ def observe(
     dashboard_prefix: str = "/nahiarhdlog",
     dashboard_token: str | None = None,
     skip_paths: list[str] | None = None,
+    capture_body: bool = True,
+    max_body_size: int = 65536,
 ) -> Collector:
     """Attach nahiarhdlog to a FastAPI app. Returns the collector.
 
@@ -51,6 +53,8 @@ def observe(
         collector=collector,
         sample_rate=sample_rate,
         skip_prefixes=tuple(skips),
+        capture_body=capture_body,
+        max_body_size=max_body_size,
     )
     ensure_handler(collector, level)
     install_excepthook(collector)

@@ -6,9 +6,10 @@ from typing import Any
 
 from .attach import attach
 from .collector import Collector
+from .span import AISpan, Span, ai_span, span
 
-__version__ = "0.6.3"
-__all__ = ["__version__", "Collector", "attach", "observe"]
+__version__ = "0.7.0"
+__all__ = ["__version__", "AISpan", "Collector", "Span", "ai_span", "attach", "observe", "span"]
 
 
 def __getattr__(name: str) -> Any:

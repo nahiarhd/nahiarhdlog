@@ -290,3 +290,52 @@ def test_dashboard_static_has_enhanced_error_handling(client_and_collector):
     assert "tb-frame" in css.text
     assert "tb-exc" in css.text
 
+
+def test_trace_endpoint_includes_summary(client_and_collector):
+    client, collector = client_and_collector
+    tid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    collector.emit(
+        {
+            "type": "request",
+            "trace_id": tid,
+            "message": "POST /api/proxy/v1/responses -> 200 (150.0ms)",
+            "data": {
+                "method": "POST",
+                "path": "/api/proxy/v1/responses",
+                "status": 200,
+                "duration_ms": 150.0,
+            },
+        }
+    )
+    collector.emit(
+        {
+            "type": "span",
+            "trace_id": tid,
+            "message": "[llm:gpt-4o] generate (120.0ms) - 80 tokens",
+            "data": {
+                "name": "generate",
+                "span_type": "llm",
+                "model": "gpt-4o",
+                "prompt_tokens": 50,
+                "completion_tokens": 30,
+                "total_tokens": 80,
+                "duration_ms": 120.0,
+            },
+        }
+    )
+    assert collector.flush()
+
+    res = client.get(f"/nahiarhdlog/api/traces/{tid}", params={"token": TOKEN})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["trace_id"] == tid
+    assert len(body["events"]) == 2
+    assert "summary" in body
+    summary = body["summary"]
+    assert summary["total_duration_ms"] == 150.0
+    assert summary["span_count"] == 1
+    assert summary["has_ai"] is True
+    assert summary["ai_summary"]["total_tokens"] == 80
+    assert summary["ai_summary"]["models"] == ["gpt-4o"]
+
+

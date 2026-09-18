@@ -57,6 +57,21 @@
       return escaped;
     }).join("\n");
   }
+  function formatPayload(val) {
+    if (val === null || val === undefined) return "";
+    if (typeof val === "object") {
+      try { return esc(JSON.stringify(val, null, 2)); } catch (err) { return esc(String(val)); }
+    }
+    if (typeof val === "string") {
+      try {
+        var p = JSON.parse(val);
+        return esc(JSON.stringify(p, null, 2));
+      } catch (err) {
+        return esc(val);
+      }
+    }
+    return esc(String(val));
+  }
   function displayMessage(e) {
     var raw = String(e.message == null ? "" : e.message);
     var d = e.data || {};
@@ -478,6 +493,8 @@
 
       var badgesHtml = "";
       var errBanner = "";
+      var payloadSections = "";
+
       if (e.type === "request") {
         head = esc(d.method || "?") + " " + esc(d.path || "?");
         if (d.status != null) badgesHtml += statusChip(d.status) + " ";
@@ -487,6 +504,148 @@
         add("query", d.query ? "?" + d.query : null, true);
         add("client", d.client, true);
         add("user agent", d.user_agent);
+
+        if (d.request_headers || d.request_body !== undefined) {
+          var reqHdrs = "";
+          if (d.request_headers && Object.keys(d.request_headers).length) {
+            reqHdrs = "<dl class='headers-block'>" +
+              Object.keys(d.request_headers).map(function (k) {
+                return "<dt>" + esc(k) + "</dt><dd>" + esc(d.request_headers[k]) + "</dd>";
+              }).join("") + "</dl>";
+          }
+          var reqBody = d.request_body !== undefined ?
+            "<pre class='payload-block'>" + formatPayload(d.request_body) + "</pre>" : "";
+          payloadSections += "<div class='detail-section'>" +
+            "<div class='detail-section-head'>" +
+              "<span class='section-label'>Request Payload</span>" +
+              "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+                COPY_ICON + " Copy request" +
+              "</button>" +
+            "</div>" +
+            reqHdrs + reqBody +
+          "</div>";
+        }
+
+        if (d.response_headers || d.response_body !== undefined) {
+          var respHdrs = "";
+          if (d.response_headers && Object.keys(d.response_headers).length) {
+            respHdrs = "<dl class='headers-block'>" +
+              Object.keys(d.response_headers).map(function (k) {
+                return "<dt>" + esc(k) + "</dt><dd>" + esc(d.response_headers[k]) + "</dd>";
+              }).join("") + "</dl>";
+          }
+          var respBody = d.response_body !== undefined ?
+            "<pre class='payload-block'>" + formatPayload(d.response_body) + "</pre>" : "";
+          payloadSections += "<div class='detail-section'>" +
+            "<div class='detail-section-head'>" +
+              "<span class='section-label'>Response Payload</span>" +
+              "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+                COPY_ICON + " Copy response" +
+              "</button>" +
+            "</div>" +
+            respHdrs + respBody +
+          "</div>";
+        }
+      } else if (e.type === "span") {
+        head = esc(d.name || displayMessage(e));
+        var st = d.span_type || "span";
+        badgesHtml += chip(st, st + " type") + " ";
+        if (d.status === "error") badgesHtml += chip("error", "error") + " ";
+        else badgesHtml += chip("ok", "ok") + " ";
+        if (d.model) badgesHtml += chip(d.model, "model") + " ";
+        if (d.total_tokens) badgesHtml += chip(d.total_tokens + " tok", "tokens") + " ";
+
+        add("time", fmtTime(e.ts));
+        add("duration", d.duration_ms == null ? null : d.duration_ms + " ms");
+        add("span id", d.span_id, true);
+        add("parent span", d.parent_span_id, true);
+        add("span type", d.span_type, true);
+        add("status", d.status, true);
+        if (d.model) add("model", d.model, true);
+        if (d.total_tokens != null) {
+          add("tokens", d.total_tokens + " (prompt: " + (d.prompt_tokens || 0) + ", compl: " + (d.completion_tokens || 0) + ")", true);
+        }
+
+        if (d.error) {
+          errBanner = "<div class='detail-error-card'>" +
+            "<div class='detail-error-head'>" +
+              "<span class='detail-error-title'>" + esc(d.error.exc_type || "Error") + "</span>" +
+            "</div>" +
+            "<div class='detail-error-msg'>" + esc(d.error.exc_message || "Operation failed") + "</div>" +
+          "</div>";
+        }
+
+        if (d.system_prompt) {
+          payloadSections += "<div class='detail-section'>" +
+            "<div class='detail-section-head'>" +
+              "<span class='section-label'>System Prompt</span>" +
+              "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+                COPY_ICON + " Copy system prompt" +
+              "</button>" +
+            "</div>" +
+            "<pre class='payload-block'>" + esc(d.system_prompt) + "</pre>" +
+          "</div>";
+        }
+
+        if (d.messages !== undefined && d.messages !== null) {
+          payloadSections += "<div class='detail-section'>" +
+            "<div class='detail-section-head'>" +
+              "<span class='section-label'>Messages / Prompt</span>" +
+              "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+                COPY_ICON + " Copy messages" +
+              "</button>" +
+            "</div>" +
+            "<pre class='payload-block'>" + formatPayload(d.messages) + "</pre>" +
+          "</div>";
+        }
+
+        if (d.tool_calls && d.tool_calls.length) {
+          payloadSections += "<div class='detail-section'>" +
+            "<div class='detail-section-head'>" +
+              "<span class='section-label'>Tool Calls</span>" +
+              "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+                COPY_ICON + " Copy tool calls" +
+              "</button>" +
+            "</div>" +
+            "<pre class='payload-block'>" + formatPayload(d.tool_calls) + "</pre>" +
+          "</div>";
+        }
+
+        if (d.completion !== undefined && d.completion !== null) {
+          payloadSections += "<div class='detail-section'>" +
+            "<div class='detail-section-head'>" +
+              "<span class='section-label'>Completion / Output</span>" +
+              "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+                COPY_ICON + " Copy completion" +
+              "</button>" +
+            "</div>" +
+            "<pre class='payload-block'>" + formatPayload(d.completion) + "</pre>" +
+          "</div>";
+        }
+
+        if (d.input !== undefined && d.input !== null && d.messages === undefined) {
+          payloadSections += "<div class='detail-section'>" +
+            "<div class='detail-section-head'>" +
+              "<span class='section-label'>Input</span>" +
+              "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+                COPY_ICON + " Copy input" +
+              "</button>" +
+            "</div>" +
+            "<pre class='payload-block'>" + formatPayload(d.input) + "</pre>" +
+          "</div>";
+        }
+
+        if (d.output !== undefined && d.output !== null && d.completion === undefined) {
+          payloadSections += "<div class='detail-section'>" +
+            "<div class='detail-section-head'>" +
+              "<span class='section-label'>Output</span>" +
+              "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+                COPY_ICON + " Copy output" +
+              "</button>" +
+            "</div>" +
+            "<pre class='payload-block'>" + formatPayload(d.output) + "</pre>" +
+          "</div>";
+        }
       } else if (e.type === "error") {
         var summary = displayMessage(e);
         head = esc(d.exc_type || summary);
@@ -516,7 +675,14 @@
         add("location", d.pathname ? d.pathname + ":" + d.lineno : null, true);
       }
 
-      var standardKeys = ["method", "path", "query", "status", "duration_ms", "client", "user_agent", "signature", "logger", "pathname", "lineno", "func", "exc_type", "exc_message", "origin"];
+      var standardKeys = [
+        "method", "path", "query", "status", "duration_ms", "client", "user_agent",
+        "signature", "logger", "pathname", "lineno", "func", "exc_type", "exc_message",
+        "origin", "request_headers", "request_body", "response_headers", "response_body",
+        "name", "span_type", "span_id", "parent_span_id", "status", "error", "model",
+        "prompt_tokens", "completion_tokens", "total_tokens", "system_prompt", "messages",
+        "tool_calls", "completion", "input", "output"
+      ];
       Object.keys(d).forEach(function (k) {
         if (standardKeys.indexOf(k) === -1 && d[k] != null && typeof d[k] !== "object") {
           add(k, String(d[k]), true);
@@ -542,7 +708,7 @@
       if (badgeBar) badgeBar.innerHTML = badgesHtml;
 
       var contentSection = "";
-      if (e.message && e.type !== "request") {
+      if (e.message && e.type !== "request" && e.type !== "span") {
         var isTb = e.message.indexOf("Traceback") !== -1;
         var sectionTitle = isTb ? "Traceback" : "Message";
         contentSection = "<div class='detail-section'>" +
@@ -558,7 +724,8 @@
 
       $("detail-body").innerHTML = errBanner +
         "<dl class='kv'>" + rows.join("") + "</dl>" +
-        contentSection;
+        contentSection +
+        payloadSections;
 
       $("detail").showModal();
       $("detail-close").focus();
@@ -575,7 +742,8 @@
   $("detail-body").addEventListener("click", function (e) {
     var copyBtn = e.target.closest("[data-copy-pre]");
     if (copyBtn) {
-      var pre = $("detail-body").querySelector("pre");
+      var section = copyBtn.closest(".detail-section");
+      var pre = section ? section.querySelector("pre") : $("detail-body").querySelector("pre");
       if (pre && navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(pre.textContent).then(function () {
           copyBtn.classList.add("copied");
@@ -811,28 +979,150 @@
         list.innerHTML = "<div class='empty-state'><p>No events found for this trace id.</p></div>";
         return;
       }
-      list.innerHTML = "<ol class='timeline'>" + res.events.map(function (e) {
-        return "<li class='" + (e.type === "error" ? "error" : "") + "' data-id='" + e.id +
-          "' tabindex='0'>" +
-          "<span class='t' title='" + esc(fmtTime(e.ts)) + "'>" + esc(fmtTimeShort(e.ts)) + "</span> " +
-          chip(e.type, e.type + " type") + " " +
-          (e.level ? chip(e.level) + " " : "") +
-          "<div class='m'>" + msgHtml(e) + "</div></li>";
-      }).join("") + "</ol>";
+
+      var summary = res.summary || {};
+      var totalDur = Number(summary.total_duration_ms || 0);
+      var startTs = Number(summary.start_ts || (res.events.length ? res.events[0].ts : 0));
+
+      // Build Trace Summary Header
+      var summaryHtml = "<div class='trace-summary-bar'>" +
+        "<div class='trace-summary-left'>" +
+          "<span class='chip mono'>" + esc(res.trace_id) + "</span>" +
+          (totalDur > 0 ? chip(totalDur.toFixed(1) + " ms", "ok") : "") +
+          chip(res.events.length + (res.events.length === 1 ? " event" : " events"), "type") +
+          (summary.span_count ? chip(summary.span_count + " spans", "span") : "");
+
+      if (summary.has_ai && summary.ai_summary) {
+        var ai = summary.ai_summary;
+        if (ai.total_tokens) summaryHtml += " " + chip(ai.total_tokens.toLocaleString() + " tokens", "llm");
+        if (ai.models && ai.models.length) {
+          ai.models.forEach(function (m) { summaryHtml += " " + chip(m, "model"); });
+        }
+        if (ai.tool_calls_count) summaryHtml += " " + chip(ai.tool_calls_count + " tools", "tool");
+      }
+      if (summary.error_count) {
+        summaryHtml += " " + chip(summary.error_count + " error" + (summary.error_count > 1 ? "s" : ""), "ERROR");
+      }
+      summaryHtml += "</div>" +
+        "<div class='trace-summary-right'>" +
+          "<button type='button' class='btn small copy-trace-btn' data-copy-trace='" + esc(res.trace_id) + "'>" +
+            COPY_ICON + " Copy trace id" +
+          "</button>" +
+        "</div>" +
+      "</div>";
+
+      // Build hierarchy map for indentation
+      var spanIdToLevel = {};
+      res.events.forEach(function (e) {
+        var d = e.data || {};
+        if (d.span_id) {
+          if (d.parent_span_id && spanIdToLevel[d.parent_span_id] != null) {
+            spanIdToLevel[d.span_id] = Math.min(3, spanIdToLevel[d.parent_span_id] + 1);
+          } else if (d.parent_span_id) {
+            spanIdToLevel[d.span_id] = 1;
+          } else if (e.type === "span") {
+            spanIdToLevel[d.span_id] = 0;
+          }
+        }
+      });
+
+      // Render Interactive Waterfall Rows
+      var waterfallRows = res.events.map(function (e) {
+        var d = e.data || {};
+        var evStart = Number(e.ts);
+        var evDur = (d.duration_ms != null) ? Number(d.duration_ms) : 0;
+        var offsetPct = totalDur > 0 ? Math.max(0, Math.min(96, ((evStart - startTs) * 1000 / totalDur) * 100)) : 0;
+        var widthPct = totalDur > 0 ? Math.max(3, Math.min(100 - offsetPct, (evDur / totalDur) * 100)) : 100;
+
+        var level = 0;
+        if (d.span_id && spanIdToLevel[d.span_id]) {
+          level = spanIdToLevel[d.span_id];
+        } else if (d.parent_span_id) {
+          level = 1;
+        }
+        var indentClass = level > 0 ? " indent-" + level : "";
+
+        var typeClass = "type-" + (d.span_type || e.type || "custom");
+        if (e.type === "request") typeClass = "type-request";
+        else if (e.type === "error") typeClass = "type-error";
+
+        var badge = "";
+        var nameText = "";
+        if (e.type === "request") {
+          badge = (d.status != null ? statusChip(d.status) + " " : "") + methodChip(d.method || "REQ");
+          nameText = d.path || displayMessage(e);
+        } else if (e.type === "span") {
+          var st = d.span_type || "span";
+          if (st === "llm") badge = chip("LLM", "llm");
+          else if (st === "tool") badge = chip("TOOL", "tool");
+          else if (st === "embedding") badge = chip("EMBED", "embedding");
+          else if (st === "agent") badge = chip("AGENT", "agent");
+          else badge = chip(st.toUpperCase(), "span");
+          nameText = d.name || displayMessage(e);
+          if (d.model) nameText += " [" + d.model + "]";
+          if (d.total_tokens) nameText += " (" + d.total_tokens + " tok)";
+        } else if (e.type === "error") {
+          badge = chip("ERROR", "ERROR");
+          nameText = d.exc_type || displayMessage(e);
+        } else {
+          badge = chip(e.type, e.type + " type");
+          nameText = displayMessage(e);
+        }
+
+        var durLabel = evDur > 0 ? evDur.toFixed(1) + " ms" : "";
+
+        return "<div class='wf-row" + (e.type === "error" || d.status === "error" ? " error" : "") + "' data-id='" + e.id + "' tabindex='0' role='button' aria-label='" + esc(nameText) + "'>" +
+          "<div class='wf-info" + indentClass + "'>" +
+            badge +
+            "<span class='wf-name' title='" + esc(nameText) + "'>" + esc(nameText) + "</span>" +
+          "</div>" +
+          "<div class='wf-bar-track' title='Start: +" + ((evStart - startTs) * 1000).toFixed(1) + "ms, Duration: " + durLabel + "'>" +
+            "<div class='wf-bar " + esc(typeClass) + "' style='left:" + offsetPct.toFixed(2) + "%; width:" + widthPct.toFixed(2) + "%;'>" +
+              "<span class='wf-dur'>" + esc(durLabel) + "</span>" +
+            "</div>" +
+          "</div>" +
+        "</div>";
+      }).join("");
+
+      var waterfallHtml = "<div class='trace-waterfall'>" +
+        "<div class='wf-header'>" +
+          "<span>Span / Operation</span>" +
+          "<span>Timeline (" + totalDur.toFixed(1) + " ms total)</span>" +
+        "</div>" +
+        waterfallRows +
+      "</div>";
+
+      list.innerHTML = summaryHtml + waterfallHtml;
     }).catch(function (err) {
       if (err.message !== "unauthorized") showBanner("Could not load trace: " + err.message);
     });
   }
   $("trace-form").addEventListener("submit", function (e) { e.preventDefault(); loadTrace(); });
   $("trace-list").addEventListener("click", function (e) {
+    var copyTrace = e.target.closest("[data-copy-trace]");
+    if (copyTrace) {
+      var tid = copyTrace.getAttribute("data-copy-trace");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tid).then(function () {
+          copyTrace.classList.add("copied");
+          var old = copyTrace.innerHTML;
+          copyTrace.innerHTML = "✓ Copied!";
+          setTimeout(function () {
+            copyTrace.innerHTML = old;
+            copyTrace.classList.remove("copied");
+          }, 1500);
+        }).catch(function () {});
+      }
+      return;
+    }
     var t = e.target.closest("[data-trace]");
     if (t) { openTrace(t.getAttribute("data-trace")); return; }
-    var item = e.target.closest("li[data-id]");
+    var item = e.target.closest("[data-id]");
     if (item) openDetail(item.getAttribute("data-id"));
   });
   $("trace-list").addEventListener("keydown", function (e) {
     if (e.key !== "Enter" && e.key !== " ") return;
-    var item = e.target.closest("li[data-id]");
+    var item = e.target.closest("[data-id]");
     if (item) { e.preventDefault(); openDetail(item.getAttribute("data-id")); }
   });
 

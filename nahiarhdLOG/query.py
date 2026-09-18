@@ -92,3 +92,86 @@ def get_trace(
         if resolved and resolved != trace_id:
             rows = search_logs(storage, LogFilter(trace_id=resolved, limit=limit))
     return list(reversed(rows))
+
+
+def summarize_trace(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Compute aggregate execution and AI metrics across all events in a trace."""
+    root_event = None
+    min_ts = None
+    max_end_ts = None
+    span_count = 0
+    error_count = 0
+    total_tokens = 0
+    prompt_tokens = 0
+    completion_tokens = 0
+    models_used: list[str] = []
+    tool_calls_count = 0
+
+    for e in events:
+        t = e.get("type")
+        data = e.get("data") or {}
+        ts = float(e.get("ts", 0))
+        dur_ms = float(data.get("duration_ms") or 0)
+        end_ts = ts + (dur_ms / 1000.0)
+
+        if min_ts is None or ts < min_ts:
+            min_ts = ts
+        if max_end_ts is None or end_ts > max_end_ts:
+            max_end_ts = end_ts
+
+        if t == "request" and root_event is None:
+            root_event = e
+        elif t == "span":
+            span_count += 1
+
+        if (
+            t == "error"
+            or e.get("level") == "CRITICAL"
+            or data.get("status") == "error"
+        ):
+            error_count += 1
+
+        # AI statistics
+        if "total_tokens" in data and data["total_tokens"] is not None:
+            total_tokens += int(data["total_tokens"])
+        if "prompt_tokens" in data and data["prompt_tokens"] is not None:
+            prompt_tokens += int(data["prompt_tokens"])
+        if "completion_tokens" in data and data["completion_tokens"] is not None:
+            completion_tokens += int(data["completion_tokens"])
+        if "model" in data and data["model"] and data["model"] not in models_used:
+            models_used.append(data["model"])
+        if "tool_calls" in data and isinstance(data["tool_calls"], list):
+            tool_calls_count += len(data["tool_calls"])
+
+    if root_event and root_event.get("data", {}).get("duration_ms") is not None:
+        total_duration_ms = float(root_event["data"]["duration_ms"])
+    elif min_ts is not None and max_end_ts is not None:
+        total_duration_ms = round((max_end_ts - min_ts) * 1000.0, 3)
+    else:
+        total_duration_ms = 0.0
+
+    return {
+        "total_duration_ms": total_duration_ms,
+        "event_count": len(events),
+        "span_count": span_count,
+        "error_count": error_count,
+        "start_ts": min_ts,
+        "has_ai": bool(
+            total_tokens
+            or models_used
+            or tool_calls_count
+            or any(
+                e.get("data", {}).get("span_type")
+                in ("llm", "tool", "embedding", "agent")
+                for e in events
+            )
+        ),
+        "ai_summary": {
+            "total_tokens": total_tokens,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "models": models_used,
+            "tool_calls_count": tool_calls_count,
+        },
+    }
+

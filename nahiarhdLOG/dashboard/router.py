@@ -16,7 +16,15 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 
 from .. import __version__
 from ..metrics import request_stats, timeseries
-from ..query import LogFilter, count_logs, get_event, get_trace, search_logs, top_errors
+from ..query import (
+    LogFilter,
+    count_logs,
+    get_event,
+    get_trace,
+    search_logs,
+    summarize_trace,
+    top_errors,
+)
 
 _MEDIA = {
     ".html": "text/html; charset=utf-8",
@@ -185,7 +193,8 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
     def trace(trace_id: str) -> dict[str, Any]:
         events = get_trace(collector.storage, trace_id)
         resolved = events[0]["trace_id"] if events and events[0].get("trace_id") else trace_id
-        return {"trace_id": resolved, "events": events}
+        summary = summarize_trace(events)
+        return {"trace_id": resolved, "events": events, "summary": summary}
 
     @router.get("/api/metrics/summary", dependencies=[authed])
     def metrics_summary(window: float = 300) -> dict[str, Any]:

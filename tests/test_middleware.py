@@ -146,3 +146,81 @@ def test_sampling_drops_ok_requests_but_keeps_errors(tmp_path):
         assert collector.storage.count(text="sample-marker") >= 1
     finally:
         collector.stop()
+
+
+def test_request_and_response_body_captured(tmp_path):
+    app = FastAPI()
+
+    @app.post("/api/proxy/v1/responses")
+    def proxy(payload: dict):
+        return {"result": f"hello {payload.get('prompt')}", "model": "test-llm"}
+
+    collector = observe(app, db_path=str(tmp_path / "t.db"), capture_body=True)
+    with TestClient(app) as client:
+        res = client.post(
+            "/api/proxy/v1/responses",
+            json={"prompt": "world", "max_tokens": 100},
+            headers={"x-custom-header": "test-val"},
+        )
+        assert res.status_code == 200
+        assert res.json()["result"] == "hello world"
+        assert collector.flush()
+        rows = collector.storage.search(event_type="request")
+        row = [r for r in rows if r["data"].get("path") == "/api/proxy/v1/responses"][0]
+        data = row["data"]
+        assert data["request_body"] == {"prompt": "world", "max_tokens": 100}
+        assert data["response_body"] == {
+            "result": "hello world",
+            "model": "test-llm",
+        }
+        assert "request_headers" in data
+        assert data["request_headers"]["x-custom-header"] == "test-val"
+        assert "response_headers" in data
+
+
+def test_sensitive_headers_and_body_redacted(tmp_path):
+    app = FastAPI()
+
+    @app.post("/login")
+    def login(payload: dict):
+        return {"status": "ok", "api_key": "secret_key_val_123"}
+
+    collector = observe(app, db_path=str(tmp_path / "t.db"), capture_body=True)
+    with TestClient(app) as client:
+        res = client.post(
+            "/login",
+            json={"username": "alice", "password": "supersecretpassword"},
+            headers={"authorization": "Bearer secret-token-xyz"},
+        )
+        assert res.status_code == 200
+        assert collector.flush()
+        row = collector.storage.search(event_type="request")[0]
+        data = row["data"]
+        assert data["request_headers"]["authorization"] == "[REDACTED]"
+        assert data["request_body"]["password"] == "[REDACTED]"
+        assert data["request_body"]["username"] == "alice"
+        assert data["response_body"]["api_key"] == "[REDACTED]"
+
+
+def test_body_size_truncation(tmp_path):
+    app = FastAPI()
+
+    @app.post("/big")
+    def big(payload: dict):
+        return {"echo": payload.get("data")}
+
+    collector = observe(
+        app, db_path=str(tmp_path / "t.db"), capture_body=True, max_body_size=50
+    )
+    with TestClient(app) as client:
+        res = client.post("/big", json={"data": "x" * 200})
+        assert res.status_code == 200
+        assert collector.flush()
+        row = collector.storage.search(event_type="request")[0]
+        data = row["data"]
+        assert data.get("request_body") is not None
+        req_body = data["request_body"]
+        assert isinstance(req_body, str) or (
+            isinstance(req_body, dict) and req_body.get("_truncated")
+        )
+

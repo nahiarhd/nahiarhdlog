@@ -91,7 +91,7 @@ logger.add(NahiarhdHandler(collector), format="{message}")
 | Errors | Grouped by `ExcType@file.py:line`, full tracebacks, top-errors ranking |
 | Alerts | Threshold rules (N events in M seconds) + cooldown; webhook, Telegram, and SMTP sinks |
 | Metrics | RPS, error rate, latency p50/p95, time-bucketed series — computed from the same request events |
-| Tracing | W3C `traceparent` in and out; one `trace_id` per request shared by logs and errors; timeline view; optional OpenTelemetry export |
+| Tracing | W3C `traceparent` in and out; one `trace_id` per request; interactive waterfall timeline; AI agent span tracing (`ai_span`, `span`); request & response payload inspection |
 | Dashboard | Embedded at `/nahiarhdlog`, token-locked, dark/light mode, mobile-friendly, live tail |
 
 <details>
@@ -108,6 +108,44 @@ logger.add(NahiarhdHandler(collector), format="{message}")
 | `sample_rate` | `1.0` | 1.0 = every request; 500s are always kept |
 | `level` | `logging.INFO` | Minimum stdlib level captured |
 | `skip_paths` | `[]` | Extra paths the middleware ignores (dashboard prefix is always excluded) |
+| `capture_body` | `True` | Automatically capture request & response headers and payloads (with secret redaction) |
+| `max_body_size` | `65536` | Maximum payload bytes captured before safe truncation |
+
+</details>
+
+<details>
+<summary><strong>AI Agent &amp; Span Tracing</strong> — instrumenting LLMs, embeddings, and tools</summary>
+
+Trace multi-step AI agent workflows with child spans, token metrics, model parameters, and tool calls automatically tied to the active request's `trace_id`:
+
+```python
+from fastapi import FastAPI
+import nahiarhdLOG
+from nahiarhdLOG import ai_span, span
+
+app = FastAPI()
+nahiarhdLOG.observe(app, dashboard_token="secret", capture_body=True)
+
+@app.post("/api/proxy/v1/responses")
+def chat_agent(req: dict):
+    # Step 1: Knowledge retrieval / vector embedding
+    with span("vector_search", span_type="embedding", input_data={"q": req["prompt"]}) as s:
+        s.set_output({"matches": 5})
+
+    # Step 2: AI LLM reasoning & tool execution
+    with ai_span("agent_reasoning", model="gpt-4o", messages=req.get("messages")) as ai:
+        with span("calculator", span_type="tool", input_data={"expr": "2+2"}) as tool:
+            tool.set_output({"res": 4})
+        ai.set_completion("The answer is 4")
+        ai.set_tokens(prompt_tokens=45, completion_tokens=15)
+        ai.set_tool_calls([{"name": "calculator", "args": {"expr": "2+2"}}])
+
+    return {"response": "The answer is 4"}
+```
+
+Open `/nahiarhdlog` and click **View trace** to see an interactive waterfall chart of every step, latency breakdowns, tokens used, and expandable request/response payloads.
+
+</details>
 
 Typical `.env`-based wiring in your app:
 

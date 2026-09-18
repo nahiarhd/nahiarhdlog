@@ -25,6 +25,13 @@ _PURGE_INTERVAL = 3600.0  # seconds
 # Default on-disk location: a dot-directory keeps project roots clean.
 DEFAULT_DB_PATH = ".nahiarhdlog/nahiarhdlog.db"
 
+_active_collector: Collector | None = None
+
+
+def get_active_collector() -> Collector | None:
+    """Return the most recently started Collector, or None."""
+    return _active_collector
+
 
 class Collector:
     """Receives events without blocking callers and persists them in batches."""
@@ -69,6 +76,8 @@ class Collector:
     def start(self) -> Collector:
         if self._started:
             return self
+        global _active_collector
+        _active_collector = self
         self._started = True
         self._thread.start()
         return self
@@ -105,6 +114,9 @@ class Collector:
     def stop(self, timeout: float = 10.0) -> None:
         if not self._started:
             return
+        global _active_collector
+        if _active_collector is self:
+            _active_collector = None
         self._started = False
         self._stop.set()
         self._thread.join(timeout=timeout)
