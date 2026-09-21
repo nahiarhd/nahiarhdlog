@@ -417,13 +417,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .45); }
   border-radius: 8px; overflow: hidden; margin-top: 8px;
 }
 .wf-header {
-  display: grid; grid-template-columns: minmax(240px, 340px) 1fr; gap: 14px; padding: 8px 14px;
+  display: grid; grid-template-columns: minmax(280px, 420px) 1fr; gap: 14px; padding: 8px 14px;
   background: var(--surface-2); border-bottom: 1px solid var(--border);
   font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase;
   letter-spacing: .4px;
 }
 .wf-row {
-  display: grid; grid-template-columns: minmax(240px, 340px) 1fr; gap: 14px; padding: 7px 14px;
+  display: grid; grid-template-columns: minmax(280px, 420px) 1fr; gap: 14px; padding: 7px 14px;
   align-items: center; cursor: pointer; border-bottom: 1px solid var(--border);
   transition: background 0.12s;
 }
@@ -433,9 +433,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .45); }
 .wf-info {
   display: flex; align-items: center; gap: 6px; overflow: hidden; min-width: 0;
 }
-.wf-info.indent-1 { padding-left: 18px; border-left: 2px solid var(--border); }
-.wf-info.indent-2 { padding-left: 32px; border-left: 2px solid var(--accent); }
-.wf-info.indent-3 { padding-left: 46px; border-left: 2px solid var(--ai); }
+.wf-tree-elbow {
+  font-family: var(--mono); color: var(--muted); font-size: 11px;
+  opacity: 0.65; user-select: none; flex-shrink: 0; margin-right: 2px;
+}
+.wf-info.indent-1 { padding-left: 14px; border-left: 2px solid var(--border); }
+.wf-info.indent-2 { padding-left: 28px; border-left: 2px solid var(--accent); }
+.wf-info.indent-3 { padding-left: 42px; border-left: 2px solid var(--ai); }
+.wf-info.indent-4 { padding-left: 56px; border-left: 2px solid var(--warn); }
 .wf-name {
   font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis;

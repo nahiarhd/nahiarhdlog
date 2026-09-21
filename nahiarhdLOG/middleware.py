@@ -154,6 +154,7 @@ class LoggingMiddleware:
         outgoing = format_traceparent(trace_id, span_id, flags)
         token = current_trace_id.set(trace_id)
         start = time.perf_counter()
+        wall_start = time.time()
         status_holder: dict[str, int] = {}
 
         # Capture request body safely
@@ -288,6 +289,7 @@ class LoggingMiddleware:
                     resp_body=bytes(resp_chunks) if resp_chunks else None,
                     resp_truncated=resp_truncated,
                     resp_headers=resp_headers if resp_headers else None,
+                    ts=wall_start,
                 )
             )
 
@@ -337,6 +339,7 @@ class LoggingMiddleware:
         resp_body: bytes | None = None,
         resp_truncated: bool = False,
         resp_headers: dict[str, str] | None = None,
+        ts: float | None = None,
     ) -> dict[str, Any]:
         query = scope.get("query_string", b"").decode("latin-1")
         path = scope.get("path", "")
@@ -361,10 +364,13 @@ class LoggingMiddleware:
                 data["response_headers"] = resp_headers
             if resp_body is not None:
                 data["response_body"] = _decode_body(resp_body, resp_truncated)
-        return {
+        event: dict[str, Any] = {
             "type": "request",
             "level": None,
             "message": f"{scope.get('method', '?')} {path} -> {status} ({duration_ms:.1f}ms)",
             "trace_id": trace_id,
             "data": data,
         }
+        if ts is not None:
+            event["ts"] = ts
+        return event

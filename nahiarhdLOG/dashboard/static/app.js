@@ -1011,19 +1011,36 @@
         "</div>" +
       "</div>";
 
-      // Build hierarchy map for indentation
-      var spanIdToLevel = {};
+      // Determine if there is a root HTTP request
+      var hasRootReq = res.events.some(function (e) { return e.type === "request"; });
+
+      // Build parent-child map for spans
+      var spanParentMap = {};
       res.events.forEach(function (e) {
         var d = e.data || {};
         if (d.span_id) {
-          if (d.parent_span_id && spanIdToLevel[d.parent_span_id] != null) {
-            spanIdToLevel[d.span_id] = Math.min(3, spanIdToLevel[d.parent_span_id] + 1);
-          } else if (d.parent_span_id) {
-            spanIdToLevel[d.span_id] = 1;
-          } else if (e.type === "span") {
-            spanIdToLevel[d.span_id] = 0;
-          }
+          spanParentMap[d.span_id] = d.parent_span_id || null;
         }
+      });
+      function getSpanDepth(spanId) {
+        var depth = 0;
+        var curr = spanId;
+        while (curr && spanParentMap[curr]) {
+          depth++;
+          curr = spanParentMap[curr];
+          if (depth > 6) break;
+        }
+        return depth;
+      }
+
+      // Sort events chronologically so the root request and child spans flow naturally
+      res.events.sort(function (a, b) {
+        var aTs = Number(a.ts) || 0;
+        var bTs = Number(b.ts) || 0;
+        if (aTs !== bTs) return aTs - bTs;
+        if (a.type === "request") return -1;
+        if (b.type === "request") return 1;
+        return (a.id || 0) - (b.id || 0);
       });
 
       // Render Interactive Waterfall Rows
@@ -1035,12 +1052,15 @@
         var widthPct = totalDur > 0 ? Math.max(3, Math.min(100 - offsetPct, (evDur / totalDur) * 100)) : 100;
 
         var level = 0;
-        if (d.span_id && spanIdToLevel[d.span_id]) {
-          level = spanIdToLevel[d.span_id];
-        } else if (d.parent_span_id) {
-          level = 1;
+        if (e.type === "request") {
+          level = 0;
+        } else if (e.type === "span") {
+          level = (hasRootReq ? 1 : 0) + getSpanDepth(d.span_id);
+        } else {
+          level = hasRootReq ? 1 : 0;
         }
-        var indentClass = level > 0 ? " indent-" + level : "";
+        var indentClass = level > 0 ? " indent-" + Math.min(4, level) : "";
+        var treeElbow = level > 0 ? "<span class='wf-tree-elbow' aria-hidden='true'>└─</span>" : "";
 
         var typeClass = "type-" + (d.span_type || e.type || "custom");
         if (e.type === "request") typeClass = "type-request";
@@ -1073,6 +1093,7 @@
 
         return "<div class='wf-row" + (e.type === "error" || d.status === "error" ? " error" : "") + "' data-id='" + e.id + "' tabindex='0' role='button' aria-label='" + esc(nameText) + "'>" +
           "<div class='wf-info" + indentClass + "'>" +
+            treeElbow +
             badge +
             "<span class='wf-name' title='" + esc(nameText) + "'>" + esc(nameText) + "</span>" +
           "</div>" +
