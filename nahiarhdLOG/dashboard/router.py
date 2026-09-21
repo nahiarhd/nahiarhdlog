@@ -5,11 +5,14 @@ Dashboard zone: allowed to import FastAPI/Starlette (see adapter boundary test).
 
 from __future__ import annotations
 
+import functools
 import hmac
 import html
+import os
+import socket
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -70,10 +73,25 @@ def _static_file(name: str, status_code: int = 200) -> FileResponse:
     )
 
 
+def _uncached(fn: Callable[..., Any]) -> Callable[..., JSONResponse]:
+    """Serve an endpoint's payload with `Cache-Control: no-store`.
+
+    A cached `[]` is indistinguishable from "no data yet" — API responses
+    are live reads and must never be stored, same as the pages.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> JSONResponse:
+        return JSONResponse(fn(*args, **kwargs), headers=_NO_STORE)
+
+    return wrapper
+
+
 def create_dashboard_router(collector: Any, token: str) -> APIRouter:
     """Build the mountable dashboard router. Token is mandatory."""
     if not token:
         raise ValueError("dashboard token is required")
+    instance = {"host": socket.gethostname(), "pid": os.getpid()}
 
     def _provided(request: Request) -> str | None:
         provided = request.query_params.get("token")
@@ -124,7 +142,7 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
         provided = data.get("token") if isinstance(data, dict) else None
         if not provided or not hmac.compare_digest(str(provided), token):
             raise HTTPException(status_code=403, detail="invalid dashboard token")
-        resp = JSONResponse({"ok": True})
+        resp = JSONResponse({"ok": True}, headers=_NO_STORE)
         resp.set_cookie(
             _COOKIE_NAME, token, httponly=True, samesite="lax", path="/"
         )
@@ -132,21 +150,26 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
 
     @router.post("/api/logout")
     def logout() -> JSONResponse:
-        resp = JSONResponse({"ok": True})
+        resp = JSONResponse({"ok": True}, headers=_NO_STORE)
         resp.delete_cookie(_COOKIE_NAME, path="/")
         return resp
 
     @router.get("/api/health", dependencies=[authed])
+    @_uncached
     def health() -> dict[str, Any]:
+        # No flush here: `queued` must report the honest backlog, and the
+        # instance id must identify whichever backend served this call.
         return {
             "version": __version__,
             "queued": collector.queued,
             "dropped": collector.dropped,
             "fts_available": collector.storage.fts_available,
             "retention_days": collector.storage.retention_days,
+            "instance": instance,
         }
 
     @router.get("/api/logs", dependencies=[authed])
+    @_uncached
     def logs(
         text: str | None = None,
         level: list[str] | None = Query(default=None),
@@ -158,6 +181,9 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
         limit: int = 100,
         offset: int = 0,
     ) -> dict[str, Any]:
+        # Wait for the backlog queued at call time so just-emitted events
+        # are visible on the first click instead of the third.
+        collector.flush_pending()
         filt = LogFilter(
             text=text,
             level=level,
@@ -177,34 +203,44 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
         }
 
     @router.get("/api/logs/{event_id}", dependencies=[authed])
+    @_uncached
     def log_detail(event_id: int) -> dict[str, Any]:
+        collector.flush_pending()
         event = get_event(collector.storage, event_id)
         if event is None:
             raise HTTPException(status_code=404, detail="event not found")
         return event
 
     @router.get("/api/errors/top", dependencies=[authed])
+    @_uncached
     def errors_top(
         since: float | None = None, limit: int = 20
     ) -> list[dict[str, Any]]:
+        collector.flush_pending()
         return top_errors(collector.storage, since=since, limit=limit)
 
     @router.get("/api/traces/{trace_id}", dependencies=[authed])
+    @_uncached
     def trace(trace_id: str) -> dict[str, Any]:
+        collector.flush_pending()
         events = get_trace(collector.storage, trace_id)
         resolved = events[0]["trace_id"] if events and events[0].get("trace_id") else trace_id
         summary = summarize_trace(events)
         return {"trace_id": resolved, "events": events, "summary": summary}
 
     @router.get("/api/metrics/summary", dependencies=[authed])
+    @_uncached
     def metrics_summary(window: float = 300) -> dict[str, Any]:
+        collector.flush_pending()
         window = max(60.0, min(float(window), 7 * 86400.0))
         return request_stats(collector.storage, window_seconds=window)
 
     @router.get("/api/metrics/series", dependencies=[authed])
+    @_uncached
     def metrics_series(
         window: float = 3600, buckets: int = 60
     ) -> list[dict[str, Any]]:
+        collector.flush_pending()
         window = max(60.0, min(float(window), 7 * 86400.0))
         buckets = max(1, min(int(buckets), 500))
         return timeseries(collector.storage, window_seconds=window, buckets=buckets)

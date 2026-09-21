@@ -56,6 +56,7 @@ class Collector:
         self._default_data = dict(default_data) if default_data else {}
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=queue_size)
         self._dropped = 0
+        self._completed = 0
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._started = False
@@ -111,6 +112,28 @@ class Collector:
             time.sleep(0.01)
         return True
 
+    def flush_pending(self, timeout: float = 2.0) -> bool:
+        """Block until events queued *at call time* are persisted.
+
+        Unlike `flush()`, arrivals after the call don't extend the wait, so
+        dashboard reads under continuous traffic stay fast (idle: instant).
+        Returns False on timeout; callers proceed with whatever is visible.
+        """
+        owed = self._queue.unfinished_tasks
+        if owed <= 0:
+            return True
+        with self._lock:
+            done_at_entry = self._completed
+        deadline = time.monotonic() + timeout
+        while True:
+            with self._lock:
+                done = self._completed - done_at_entry
+            if done >= owed:
+                return True
+            if time.monotonic() > deadline:
+                return False
+            time.sleep(0.01)
+
     def stop(self, timeout: float = 10.0) -> None:
         if not self._started:
             return
@@ -128,6 +151,8 @@ class Collector:
         finally:
             for _ in batch:
                 self._queue.task_done()
+            with self._lock:
+                self._completed += len(batch)
 
     def _run(self) -> None:
         batch: list[dict[str, Any]] = []

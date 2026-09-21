@@ -13,6 +13,11 @@
     liveTimer: null,
   };
 
+  // Request generations: rapid clicks and live-tail ticks overlap in flight,
+  // so a slow older response must never overwrite newer state. Each loader
+  // bumps its counter when issuing and drops responses from a past generation.
+  var reqSeq = { logs: 0, errors: 0, trace: 0, metrics: 0, detail: 0, health: 0 };
+
   function $(id) { return document.getElementById(id); }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -239,11 +244,21 @@
   });
 
   /* Health */
+  var lastInstance = null;
   function loadHealth() {
+    var my = ++reqSeq.health;
     api("/health").then(function (h) {
+      if (my !== reqSeq.health) return;
       $("version").textContent = "v" + h.version;
-      $("health-text").textContent = "queue " + h.queued + " · dropped " + h.dropped;
+      var inst = h.instance ? h.instance.host + "/" + h.instance.pid : "?";
+      $("health-text").textContent = "queue " + h.queued + " · dropped " + h.dropped + " · " + inst;
+      $("health").title = "Backend " + inst + " · collector queue / dropped events";
       $("health-dot").className = "dot" + (h.dropped > 0 ? " warn" : " ok");
+      if (lastInstance && lastInstance !== inst && $("banner").classList.contains("hidden")) {
+        showBanner("Dashboard reached a different backend (" + lastInstance + " → " + inst + "). " +
+          "With multiple replicas each has its own database — enable sticky sessions for stable reads.");
+      }
+      lastInstance = inst;
     }).catch(function () { /* banner owned by view loaders */ });
   }
 
@@ -344,12 +359,14 @@
     if (f.level) params.level = f.level;
     if (f.type) params.type = f.type;
     if (f.signature) params.signature = f.signature;
+    var my = ++reqSeq.logs;
     hideBanner();
     var body = $("logs-body");
     if (!silent) {
       body.innerHTML = '<tr class="empty-row"><td colspan="5">Loading…</td></tr>';
     }
     return api("/logs", params).then(function (res) {
+      if (my !== reqSeq.logs) return;
       var ids = res.items.map(function (e) { return String(e.id); }).join(",");
       if (silent && body.getAttribute("data-ids") === ids) {
         renderLogsMeta(res);
@@ -371,6 +388,7 @@
       }
       renderLogsMeta(res);
     }).catch(function (err) {
+      if (my !== reqSeq.logs) return;
       if (err.message !== "unauthorized") showBanner("Could not load logs: " + err.message);
     });
   }
@@ -482,7 +500,9 @@
     return chip(String(status), cls);
   }
   function openDetail(id) {
+    var my = ++reqSeq.detail;
     api("/logs/" + id).then(function (e) {
+      if (my !== reqSeq.detail) return;
       var d = e.data || {};
       var head = "", rows = [];
       function add(k, v, mono) {
@@ -730,6 +750,7 @@
       $("detail").showModal();
       $("detail-close").focus();
     }).catch(function (err) {
+      if (my !== reqSeq.detail) return;
       if (err.message !== "unauthorized") showBanner("Could not load event: " + err.message);
     });
   }
@@ -770,10 +791,12 @@
 
   /* Errors */
   function loadErrors() {
+    var my = ++reqSeq.errors;
     hideBanner();
     var list = $("errors-list");
     list.innerHTML = "<p class='meta'>Loading…</p>";
     api("/errors/top", { limit: 50 }).then(function (rows) {
+      if (my !== reqSeq.errors) return;
       $("errors-meta").textContent = rows.length
         ? rows.length + " error signature" + (rows.length === 1 ? "" : "s") + ", ranked by count."
         : "";
@@ -798,11 +821,14 @@
           $("f-level").value = "";
           $("f-type").value = "error";
           activateTab("logs");
-          loadLogs();
+          // activateTab already issued a silent load when live is on —
+          // a second explicit load only doubles requests that can race.
+          if (!state.logs.live) loadLogs();
         });
         list.appendChild(b);
       });
     }).catch(function (err) {
+      if (my !== reqSeq.errors) return;
       if (err.message !== "unauthorized") showBanner("Could not load errors: " + err.message);
     });
   }
@@ -903,12 +929,14 @@
     });
   }
   function loadMetrics() {
+    var my = ++reqSeq.metrics;
     hideBanner();
     var window = $("m-window").value;
     Promise.all([
       api("/metrics/summary", { window: window }),
       api("/metrics/series", { window: window, buckets: 60 }),
     ]).then(function (res) {
+      if (my !== reqSeq.metrics) return;
       var s = res[0], series = res[1];
       var times = series.map(function (b) { return b.ts; });
       $("stats").innerHTML =
@@ -924,6 +952,7 @@
         { name: "Avg ms", values: series.map(function (b) { return b.avg_ms || 0; }), color: cssVar("--warn") },
       ], { times: times, label: "Average latency in milliseconds", legendId: "legend-lat" });
     }).catch(function (err) {
+      if (my !== reqSeq.metrics) return;
       if (err.message !== "unauthorized") showBanner("Could not load metrics: " + err.message);
     });
   }
@@ -941,9 +970,11 @@
     else activateTab("trace");
   }
   function loadRecentTraces() {
+    var my = ++reqSeq.trace;
     var list = $("trace-list");
     list.innerHTML = "<p class='meta'>Loading…</p>";
     api("/logs", { limit: 50 }).then(function (res) {
+      if (my !== reqSeq.trace) return;
       var seen = {};
       var items = [];
       res.items.forEach(function (e) {
@@ -964,6 +995,7 @@
             "</button></li>";
         }).join("") + "</ul>";
     }).catch(function (err) {
+      if (my !== reqSeq.trace) return;
       if (err.message !== "unauthorized") showBanner("Could not load traces: " + err.message);
     });
   }
@@ -971,9 +1003,11 @@
     var tid = $("t-id").value.trim();
     var list = $("trace-list");
     if (!tid) { loadRecentTraces(); return; }
+    var my = ++reqSeq.trace;
     hideBanner();
     list.innerHTML = "<p class='meta'>Loading…</p>";
     api("/traces/" + encodeURIComponent(tid)).then(function (res) {
+      if (my !== reqSeq.trace) return;
       if (res.trace_id && res.trace_id !== tid) $("t-id").value = res.trace_id;
       if (!res.events.length) {
         list.innerHTML = "<div class='empty-state'><p>No events found for this trace id.</p></div>";
@@ -1119,6 +1153,7 @@
 
       list.innerHTML = summaryHtml + waterfallHtml;
     }).catch(function (err) {
+      if (my !== reqSeq.trace) return;
       if (err.message !== "unauthorized") showBanner("Could not load trace: " + err.message);
     });
   }

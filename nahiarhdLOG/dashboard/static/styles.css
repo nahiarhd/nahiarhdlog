@@ -70,6 +70,7 @@ body {
   display: flex; align-items: center; gap: 6px; font-size: 12px;
   color: var(--muted); font-family: var(--mono); white-space: nowrap;
 }
+#health-text { overflow: hidden; text-overflow: ellipsis; max-width: 38vw; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .dot.warn { background: var(--warn); }
 .icon-btn {

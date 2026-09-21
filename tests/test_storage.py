@@ -37,6 +37,92 @@ def test_fts_special_characters_do_not_crash(storage):
     assert len(rows) == 1
 
 
+def _break_fts(storage):
+    """Fault injection: drop the FTS index so MATCH raises OperationalError."""
+    storage._conn.execute("DROP TABLE events_fts")
+
+
+def test_fts_fallback_preserves_all_filters(storage):
+    # Regression: when MATCH failed, the LIKE fallback dropped every other
+    # filter (type/level/signature/...) and returned a wrong superset.
+    storage.insert_many(
+        [
+            _event("boom marker one", type="error", level="CRITICAL",
+                   trace_id="t1", data={"signature": "E@a.py:1"}),
+            _event("boom marker two", type="request", level=None, trace_id="t1"),
+            _event("boom marker three", type="log", level="INFO", trace_id="t2"),
+        ]
+    )
+    _break_fts(storage)
+    rows = storage.search(text="marker", event_type="error")
+    assert [r["type"] for r in rows] == ["error"]
+    assert storage.count(text="marker", event_type="error") == 1
+    assert storage.count(text="marker", level="INFO") == 1
+    assert storage.count(text="marker", trace_id="t2") == 1
+    assert storage.count(text="marker", signature="E@a.py:1") == 1
+    assert storage.search(text="marker", event_type="error", level="INFO") == []
+
+
+def test_fts_fallback_matches_primary_results(storage):
+    storage.insert_many(
+        [
+            _event("alpha needle beta", type="error", level="CRITICAL"),
+            _event("gamma needle delta", type="log", level="INFO"),
+            _event("no match here", type="log", level="INFO"),
+        ]
+    )
+    before = [r["id"] for r in storage.search(text="needle")]
+    _break_fts(storage)
+    after = [r["id"] for r in storage.search(text="needle")]
+    assert after == before
+    assert storage.count(text="needle") == 2
+
+
+class _FlakyConn:
+    """Raises one transient lock error, then delegates to the real connection."""
+
+    def __init__(self, real):
+        self._real = real
+        self.calls = 0
+
+    def execute(self, sql, *args):
+        self.calls += 1
+        if self.calls == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return self._real.execute(sql, *args)
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+
+def test_text_search_reraises_lock_errors(storage):
+    # A transient lock must surface as an error (caller retries), never
+    # silently degrade into different results.
+    storage.insert_many([_event("lockme")])
+    flaky = _FlakyConn(storage._conn)
+    storage._conn = flaky
+    with pytest.raises(sqlite3.OperationalError):
+        storage.search(text="lockme")
+    flaky.calls = 0
+    with pytest.raises(sqlite3.OperationalError):
+        storage.count(text="lockme")
+
+
+def test_repeated_text_search_is_deterministic(storage):
+    storage.insert_many(
+        [
+            _event(f"trace feebb235-6de1 event {i}", trace_id="t1")
+            for i in range(5)
+        ]
+        + [_event("unrelated", trace_id="t2")]
+    )
+    runs = [
+        tuple(r["id"] for r in storage.search(text="feebb235-6de1"))
+        for _ in range(5)
+    ]
+    assert all(r == runs[0] for r in runs) and len(runs[0]) == 5
+
+
 def test_filters_and_pagination(storage):
     for i in range(10):
         storage.insert_many(

@@ -227,6 +227,8 @@ Open `http://127.0.0.1:8000/nahiarhdlog/` with token `demo-token`.
 
 **Can two machines share one SQLite file?** No. WAL requires every process on the **same host** (same volume). It does not work over a network filesystem, so an API pod and a worker pod each get their own database unless they mount the same disk. That is a SQLite limit, not a bug. For multi-host history, plug a custom storage backend.
 
+**Why does the dashboard sometimes show empty results, then data after re-clicking?** Reads drain the pending write queue first, so fresh events appear on the first click. If empty-then-data persists across clicks seconds apart, consecutive requests are reaching **different backends**: with replicas > 1 each pod has its own SQLite file and a round-robin load balancer flips you between them. The footer shows which backend (`host/pid`) served the last call, and a banner appears when it changes. Fix it with sticky sessions, a single replica for the dashboard, or a shared storage backend.
+
 **How do traces line up with my gateway / OpenTelemetry?** Incoming `traceparent` is reused as `trace_id`; the response gets a new `parent-id` for this hop ([W3C Trace Context](https://www.w3.org/TR/trace-context-1/#traceparent-header)). No header → a new trace is started. Browser clients that need to read the response header must add `traceparent` to CORS `expose_headers`.
 
 **Is the dashboard secure?** Data is served only when `dashboard_token` is configured, and every page + API call requires presenting the token (cookie set at login; old `?token=` links migrate). Open the URL without the token and you get a lock screen (401). Skip `dashboard_token` entirely and you get a setup page instead of data. Use a long random token and HTTPS in production.

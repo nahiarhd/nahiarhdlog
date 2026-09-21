@@ -5,6 +5,17 @@ All notable changes to `nahiarhdlog` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Dashboard reads wait for the queued backlog (`Collector.flush_pending`) so just-emitted errors appear on the first click instead of after repeated clicks.
+- Dashboard API responses send `Cache-Control: no-store` — a cached `[]` is indistinguishable from "no data".
+- Error-card clicks no longer fire duplicate log requests; stale out-of-order responses are dropped via request generations in `app.js`.
+- Text-search FTS fallback preserves all other filters (type/level/signature/...) instead of returning a wrong unfiltered superset; transient lock errors now surface instead of silently degrading into different results.
+
+### Added
+- `/api/health` reports the backend `instance` (`host`/`pid`), shown in the dashboard footer with a warning banner when consecutive calls reach different backends (multi-replica round-robin).
+
 ## [0.7.0] - 2026-09-21
 
 ### Added

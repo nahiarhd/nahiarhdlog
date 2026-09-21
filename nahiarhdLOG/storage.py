@@ -155,11 +155,12 @@ class SQLiteStorage:
         signature: str | None,
         since: float | None,
         until: float | None,
+        use_fts: bool = True,
     ) -> tuple[str, list[Any], str | None]:
         clauses: list[str] = []
         params: list[Any] = []
         join = ""
-        if text and self._fts:
+        if text and self._fts and use_fts:
             join = "JOIN events_fts f ON f.rowid = e.id"
             clauses.append("events_fts MATCH ?")
             params.append('"' + text.replace('"', '""') + '"')
@@ -212,15 +213,23 @@ class SQLiteStorage:
         try:
             with self._lock:
                 rows = self._conn.execute(sql, (*params, limit, offset)).fetchall()
-        except sqlite3.OperationalError:
-            if not text or not self._fts:
+        except sqlite3.OperationalError as exc:
+            err_msg = str(exc).lower()
+            if not text or not self._fts or "locked" in err_msg or "busy" in err_msg:
                 raise
+            # FTS index unusable (bad query syntax, corrupt/missing table):
+            # retry the SAME filters with LIKE instead of silently dropping
+            # them and returning a wrong superset.
+            join, params, where = self._filters(
+                text, level, event_type, trace_id, signature, since, until,
+                use_fts=False,
+            )
+            sql = (
+                f"SELECT e.* FROM events e {join} {where}"
+                " ORDER BY e.ts DESC, e.id DESC LIMIT ? OFFSET ?"
+            )
             with self._lock:
-                rows = self._conn.execute(
-                    "SELECT e.* FROM events e WHERE e.message LIKE ?"
-                    " ORDER BY e.ts DESC, e.id DESC LIMIT ? OFFSET ?",
-                    (f"%{text}%", limit, offset),
-                ).fetchall()
+                rows = self._conn.execute(sql, (*params, limit, offset)).fetchall()
         return [_row_to_event(r) for r in rows]
 
     def count(
@@ -240,14 +249,17 @@ class SQLiteStorage:
         try:
             with self._lock:
                 row = self._conn.execute(sql, params).fetchone()
-        except sqlite3.OperationalError:
-            if not text or not self._fts:
+        except sqlite3.OperationalError as exc:
+            err_msg = str(exc).lower()
+            if not text or not self._fts or "locked" in err_msg or "busy" in err_msg:
                 raise
+            join, params, where = self._filters(
+                text, level, event_type, trace_id, signature, since, until,
+                use_fts=False,
+            )
+            sql = f"SELECT COUNT(*) AS n FROM events e {join} {where}"
             with self._lock:
-                row = self._conn.execute(
-                    "SELECT COUNT(*) AS n FROM events e WHERE e.message LIKE ?",
-                    (f"%{text}%",),
-                ).fetchone()
+                row = self._conn.execute(sql, params).fetchone()
         return int(row["n"])
 
     def top_signatures(

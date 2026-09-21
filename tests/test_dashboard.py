@@ -1,4 +1,6 @@
 import logging
+import os
+import socket
 import time
 
 import pytest
@@ -7,6 +9,13 @@ from fastapi.testclient import TestClient
 
 from nahiarhdLOG import observe
 from nahiarhdLOG.dashboard.router import create_dashboard_router
+
+# The TestClient logs every request at INFO; the dashboard's own root
+# handler would capture that harness noise into the test DB and pollute
+# unfiltered counts. Silence the client loggers (both package names, since
+# Starlette may use either) so tests assert only on fixture data.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpx2").setLevel(logging.WARNING)
 
 TOKEN = "s3cret-token"
 
@@ -278,6 +287,16 @@ def test_router_requires_token(tmp_path):
         collector.stop()
 
 
+def test_dashboard_js_has_stale_response_guards(client_and_collector):
+    # Rapid clicks overlap requests in flight; a slow older response must
+    # never overwrite newer state, and backend flips must surface.
+    client, _ = client_and_collector
+    js = client.get("/nahiarhdlog/static/app.js").text
+    assert "reqSeq" in js
+    assert "lastInstance" in js
+    assert "sticky sessions" in js
+
+
 def test_dashboard_static_has_enhanced_error_handling(client_and_collector):
     client, _ = client_and_collector
     js = client.get("/nahiarhdlog/static/app.js")
@@ -289,6 +308,67 @@ def test_dashboard_static_has_enhanced_error_handling(client_and_collector):
     assert "traceback-block" in css.text
     assert "tb-frame" in css.text
     assert "tb-exc" in css.text
+
+
+def test_reads_see_just_emitted_events(client_and_collector):
+    # Regression: events sitting in the async queue were invisible to the
+    # dashboard (first click [], later clicks show data). Reads now wait
+    # for the pending backlog before querying.
+    client, collector = client_and_collector
+    for i in range(4):
+        collector.emit(
+            {
+                "type": "error",
+                "level": "CRITICAL",
+                "message": f"ValidationError: boom {i}",
+                "trace_id": f"fresh-{i}",
+                "data": {
+                    "exc_type": "ValidationError",
+                    "signature": "ValidationError@http.py:191",
+                },
+            }
+        )
+    q = {"token": TOKEN}
+    top = client.get("/nahiarhdlog/api/errors/top", params=q).json()
+    by_sig = {r["signature"]: r["count"] for r in top}
+    assert by_sig["ValidationError@http.py:191"] == 4
+    logs = client.get(
+        "/nahiarhdlog/api/logs",
+        params={**q, "type": "error", "signature": "ValidationError@http.py:191"},
+    ).json()
+    assert logs["total"] == 4
+
+
+def test_api_json_is_never_cached(client_and_collector):
+    # Stale cached [] is indistinguishable from "no data" — API responses
+    # must never be stored, same as the pages.
+    client, _ = client_and_collector
+    q = {"token": TOKEN}
+    first_id = client.get("/nahiarhdlog/api/logs", params={**q, "limit": 1}).json()[
+        "items"
+    ][0]["id"]
+    urls = [
+        "/nahiarhdlog/api/health",
+        "/nahiarhdlog/api/logs",
+        f"/nahiarhdlog/api/logs/{first_id}",
+        "/nahiarhdlog/api/errors/top",
+        "/nahiarhdlog/api/traces/t1",
+        "/nahiarhdlog/api/metrics/summary",
+        "/nahiarhdlog/api/metrics/series",
+    ]
+    for url in urls:
+        r = client.get(url, params=q)
+        assert r.status_code == 200, url
+        assert r.headers["cache-control"] == "no-store", url
+
+
+def test_health_reports_backend_instance(client_and_collector):
+    # With multiple replicas each backend has its own database; the footer
+    # shows host/pid so round-robin flips are visible instead of mysterious.
+    client, _ = client_and_collector
+    health = client.get("/nahiarhdlog/api/health", params={"token": TOKEN}).json()
+    assert health["instance"]["pid"] == os.getpid()
+    assert health["instance"]["host"] == socket.gethostname()
 
 
 def test_trace_endpoint_includes_summary(client_and_collector):
