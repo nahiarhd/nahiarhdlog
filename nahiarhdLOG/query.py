@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .postgres import PostgresStorage
 from .storage import SQLiteStorage
 
 _MAX_LIMIT = 1000
@@ -40,7 +41,7 @@ class LogFilter:
         )
 
 
-def search_logs(storage: SQLiteStorage, filt: LogFilter) -> list[dict[str, Any]]:
+def search_logs(storage: SQLiteStorage | PostgresStorage, filt: LogFilter) -> list[dict[str, Any]]:
     f = filt.normalized()
     return storage.search(
         text=f.text,
@@ -55,7 +56,7 @@ def search_logs(storage: SQLiteStorage, filt: LogFilter) -> list[dict[str, Any]]
     )
 
 
-def count_logs(storage: SQLiteStorage, filt: LogFilter) -> int:
+def count_logs(storage: SQLiteStorage | PostgresStorage, filt: LogFilter) -> int:
     f = filt.normalized()
     return storage.count(
         text=f.text,
@@ -68,18 +69,18 @@ def count_logs(storage: SQLiteStorage, filt: LogFilter) -> int:
     )
 
 
-def get_event(storage: SQLiteStorage, event_id: int) -> dict[str, Any] | None:
+def get_event(storage: SQLiteStorage | PostgresStorage, event_id: int) -> dict[str, Any] | None:
     return storage.get(int(event_id))
 
 
 def top_errors(
-    storage: SQLiteStorage, since: float | None = None, limit: int = 20
+    storage: SQLiteStorage | PostgresStorage, since: float | None = None, limit: int = 20
 ) -> list[dict[str, Any]]:
     return storage.top_signatures(since=since, limit=limit)
 
 
 def get_trace(
-    storage: SQLiteStorage, trace_id: str, limit: int = 500
+    storage: SQLiteStorage | PostgresStorage, trace_id: str, limit: int = 500
 ) -> list[dict[str, Any]]:
     """All events of one trace, oldest first (v1: flat, single-service).
 

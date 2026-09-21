@@ -11,6 +11,7 @@ import threading
 import time
 from typing import TYPE_CHECKING, Any
 
+from .postgres import PostgresStorage
 from .storage import SQLiteStorage
 
 if TYPE_CHECKING:
@@ -42,16 +43,18 @@ class Collector:
         retention_days: int = 7,
         queue_size: int = 10_000,
         alerter: Alerter | None = None,
-        storage: SQLiteStorage | None = None,
+        storage: SQLiteStorage | PostgresStorage | None = None,
         default_data: dict[str, Any] | None = None,
     ) -> None:
-        # Custom backends (e.g. Postgres) plug in here; anything duck-typed
-        # like SQLiteStorage works. Default stays zero-infrastructure.
-        self.storage = (
-            storage
-            if storage is not None
-            else SQLiteStorage(db_path, retention_days=retention_days)
-        )
+        # Custom backends plug in via `storage`; anything duck-typed like
+        # SQLiteStorage works. Otherwise a postgres URL selects shared
+        # Postgres history, and anything else stays zero-infrastructure.
+        if storage is not None:
+            self.storage = storage
+        elif db_path.startswith(("postgresql://", "postgres://")):
+            self.storage = PostgresStorage(db_path, retention_days=retention_days)
+        else:
+            self.storage = SQLiteStorage(db_path, retention_days=retention_days)
         self.alerter = alerter
         self._default_data = dict(default_data) if default_data else {}
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=queue_size)

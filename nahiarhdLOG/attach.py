@@ -21,9 +21,11 @@ def attach(
 ) -> Collector:
     """Capture this process's stdlib logs and uncaught exceptions.
 
-    Point `db_path` at the same SQLite file as `observe()` so a worker,
-    cron job, or script shows up in the existing dashboard. `source` is
-    an optional tag stored on each event's `data` — the dashboard does
+    Point `db_path` at the same target as `observe()` — the same SQLite
+    file, or the same `postgresql://` URL for shared multi-host history
+    (needs `pip install nahiarhdlog[postgres]`) — so a worker, cron job,
+    or script shows up in the existing dashboard. `source` is an
+    optional tag stored on each event's `data` — the dashboard does
     not filter on it.
     """
     extra = {"source": source} if source else None

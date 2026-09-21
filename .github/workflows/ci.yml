@@ -12,12 +12,26 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      NAHILOG_TEST_PG_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e .[dev,otel]
+      - run: pip install -e .[dev,otel,postgres]
       - run: pytest
       - run: python -m build
       - run: twine check dist/*

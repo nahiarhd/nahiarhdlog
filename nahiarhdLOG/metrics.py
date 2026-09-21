@@ -11,6 +11,7 @@ import math
 import time
 from typing import Any
 
+from .postgres import PostgresStorage
 from .storage import SQLiteStorage
 
 
@@ -23,7 +24,9 @@ def quantile(sorted_values: list[float], q: float) -> float | None:
 
 
 def request_stats(
-    storage: SQLiteStorage, window_seconds: float = 300.0, now: float | None = None
+    storage: SQLiteStorage | PostgresStorage,
+    window_seconds: float = 300.0,
+    now: float | None = None,
 ) -> dict[str, Any]:
     """Aggregate RPS / latency / errors over the trailing window."""
     now = time.time() if now is None else now
@@ -43,7 +46,7 @@ def request_stats(
 
 
 def timeseries(
-    storage: SQLiteStorage,
+    storage: SQLiteStorage | PostgresStorage,
     window_seconds: float = 3600.0,
     buckets: int = 60,
     now: float | None = None,
