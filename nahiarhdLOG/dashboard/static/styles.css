@@ -205,8 +205,11 @@ tbody tr.sev-crit[data-id]:hover { background: var(--danger-soft); }
 .chip.tool { background: var(--warn-soft); color: var(--warn); }
 .chip.embedding, .chip.embed { background: var(--accent-soft); color: var(--accent); }
 .chip.agent { background: var(--ai-soft); color: var(--ai); font-weight: 600; }
-.chip.model { background: var(--ai-soft); color: var(--ai); font-family: var(--mono); }
 .chip.tokens { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); font-family: var(--mono); }
+.chip.db { background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 600; }
+.chip.cache { background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-weight: 600; }
+.chip.http, .chip.service { background: rgba(6, 182, 212, 0.15); color: #06b6d4; font-weight: 600; }
+.chip.auth { background: rgba(168, 85, 247, 0.15); color: #a855f7; font-weight: 600; }
 .btn.small { padding: 4px 10px; font-size: 12.5px; }
 tr[data-id]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 #detail-body p { margin: 0 0 10px; }
@@ -462,6 +465,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .45); }
 .wf-bar.type-tool { background: var(--warn); color: #fff; }
 .wf-bar.type-embedding, .wf-bar.type-embed { background: var(--accent); color: #fff; }
 .wf-bar.type-agent { background: #6366f1; color: #fff; }
+.wf-bar.type-db { background: #10b981; color: #fff; }
+.wf-bar.type-cache { background: #f59e0b; color: #fff; }
+.wf-bar.type-http, .wf-bar.type-service { background: #06b6d4; color: #fff; }
+.wf-bar.type-auth { background: #a855f7; color: #fff; }
 .wf-bar.type-error { background: var(--danger); color: #fff; }
 .wf-bar.type-span { background: var(--accent); color: #fff; }
 .wf-bar.type-log { background: var(--muted); color: #fff; }

@@ -1075,8 +1075,12 @@
           var st = d.span_type || "span";
           if (st === "llm") badge = chip("LLM", "llm");
           else if (st === "tool") badge = chip("TOOL", "tool");
-          else if (st === "embedding") badge = chip("EMBED", "embedding");
+          else if (st === "embedding" || st === "embed") badge = chip("EMBED", "embedding");
           else if (st === "agent") badge = chip("AGENT", "agent");
+          else if (st === "db" || st === "sql") badge = chip("DB", "db");
+          else if (st === "cache" || st === "redis") badge = chip("CACHE", "cache");
+          else if (st === "http" || st === "service") badge = chip("HTTP", "http");
+          else if (st === "auth") badge = chip("AUTH", "auth");
           else badge = chip(st.toUpperCase(), "span");
           nameText = d.name || displayMessage(e);
           if (d.model) nameText += " [" + d.model + "]";
