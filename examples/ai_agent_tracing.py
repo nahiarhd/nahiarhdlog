@@ -84,22 +84,36 @@ def generate_ai_response(req: PromptRequest):
 
 
 if __name__ == "__main__":
+    import json
+    import threading
+    import urllib.request
     import uvicorn
-    from fastapi.testclient import TestClient
 
-    # Generate an initial demo request so the trace is pre-populated
-    with TestClient(app) as client:
-        client.get("/api/v1/embedding/graph/e3993337-1f6d-4da7-acba-c63d08036113")
-        client.post(
-            "/api/proxy/v1/responses",
-            json={
-                "model": "gpt-4o",
-                "prompt": "What is the meaning of life times two?",
-                "temperature": 0.7,
-                "max_tokens": 500,
-            },
-            headers={"User-Agent": "ai/6.0.86 ai-sdk/provider-utils/4.0.51 runtime/node.js/22"},
-        )
-    print("\n✓ Seeded sample AI trace into .nahiarhdlog/nahiarhdlog.db")
+    def seed_initial_traces():
+        time.sleep(1.0)
+        try:
+            # Seed graph embedding request
+            urllib.request.urlopen("http://127.0.0.1:8000/api/v1/embedding/graph/e3993337-1f6d-4da7-acba-c63d08036113")
+            # Seed AI proxy responses request
+            post_req = urllib.request.Request(
+                "http://127.0.0.1:8000/api/proxy/v1/responses",
+                data=json.dumps({
+                    "model": "gpt-4o",
+                    "prompt": "What is the meaning of life times two?",
+                    "temperature": 0.7,
+                    "max_tokens": 500,
+                }).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": "ai/6.0.86 ai-sdk/provider-utils/4.0.51 runtime/node.js/22",
+                },
+                method="POST",
+            )
+            urllib.request.urlopen(post_req)
+            print("\n✓ Seeded sample AI trace into live server")
+        except Exception as err:
+            print(f"Note: Automatic seed request returned: {err}")
+
+    threading.Thread(target=seed_initial_traces, daemon=True).start()
     print("✓ Starting server at http://127.0.0.1:8000/nahiarhdlog/ (token: demo-token)\n")
     uvicorn.run(app, host="127.0.0.1", port=8000)
