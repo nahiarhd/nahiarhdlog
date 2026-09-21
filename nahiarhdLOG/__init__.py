@@ -6,10 +6,21 @@ from typing import Any
 
 from .attach import attach
 from .collector import Collector
+from .postgres import PostgresStorage
 from .span import AISpan, Span, ai_span, span
 
-__version__ = "0.7.1"
-__all__ = ["__version__", "AISpan", "Collector", "Span", "ai_span", "attach", "observe", "span"]
+__version__ = "0.8.0"
+__all__ = [
+    "__version__",
+    "AISpan",
+    "Collector",
+    "PostgresStorage",
+    "Span",
+    "ai_span",
+    "attach",
+    "observe",
+    "span",
+]
 
 
 def __getattr__(name: str) -> Any:

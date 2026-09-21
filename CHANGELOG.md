@@ -5,6 +5,13 @@ All notable changes to `nahiarhdlog` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-09-21
+
+### Added
+- **Shared Postgres storage (`nahiarhdLOG.PostgresStorage`, `pip install nahiarhdlog[postgres]`):** point `db_path` at a `postgresql://` URL and every replica reads and writes one `nahiarhdlog_events` table — the dashboard stops flip-flopping between per-pod SQLite files and traces resolve on the first click. SQLite stays the zero-infrastructure default for plain paths.
+- `Collector` reconnects once and retries after a dropped Postgres connection instead of failing permanently; use-after-`close()` raises immediately.
+- CI runs the Postgres backend suite against a `postgres:16` service.
+
 ## [0.7.1] - 2026-09-21
 
 ### Fixed
