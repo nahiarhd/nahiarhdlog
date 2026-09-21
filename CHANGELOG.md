@@ -1,0 +1,30 @@
+# Changelog
+
+All notable changes to `nahiarhdlog` will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.7.0] - 2026-09-21
+
+### Added
+- **Interactive Trace Waterfall UI:** Visual timeline waterfall rendering parent-child span execution, relative timing offsets, duration bars, and aggregate trace metrics.
+- **Hierarchical Trace Tree View:** Visual branch guide lines (`└─`) and depth nesting for HTTP requests, AI agents, LLM synthesis, tool calls, vector embeddings, databases, and caches.
+- **HTTP Request & Response Body Inspection:** Non-destructive ASGI stream interception capturing request payloads and response bodies with configurable size limits (`max_body_size`).
+- **AI Agent Tracing API (`nahiarhdLOG.span`, `nahiarhdLOG.ai_span`):** Context managers and decorators capturing LLM parameters (model, prompt, completion, system prompt, tokens, tool calls) and embedding steps.
+- **Dedicated Payload Viewers:** Formatted JSON viewer with copy buttons for requests, responses, model outputs, and tool call arguments.
+- **Color-Coded Operation Badges:** Visual badges and timeline bar colors for `[REQ]`, `[AGENT]`, `[LLM]`, `[TOOL]`, `[EMBED]`, `[DB]`, `[CACHE]`, `[HTTP]`, `[AUTH]`, and `[ERROR]`.
+- **Sensitive Credential Redaction:** Automatic redaction of passwords, bearer tokens, API keys, and authorization secrets in request/response bodies and headers.
+
+### Changed
+- `observe(app)` accepts `capture_body: bool = True` and `max_body_size: int = 65536` parameters.
+- `/api/traces/{trace_id}` endpoint returns computed trace summary metrics alongside events.
+- Root HTTP requests are timestamped from execution start for accurate chronological timeline alignment.
+
+### Fixed
+- Fixed premature database shutdown in demo app by replacing TestClient lifespan runner with background daemon seeding.
+
+---
+
+## [0.6.3] - 2026-09-18
+- Initial release with embedded SQLite logging, error tracking, alerts, and metrics.
