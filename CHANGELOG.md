@@ -5,6 +5,11 @@ All notable changes to `nahiarhdlog` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-09-23
+
+### Fixed
+- The "reached a different backend" banner no longer fires on Postgres-backed deployments, where every replica reads the same events. `/api/health` reports `shared_storage` from the storage's new `shared` flag (`SQLiteStorage.shared = False`, `PostgresStorage.shared = True`; custom storages without it are treated as per-process).
+
 ## [0.8.0] - 2026-09-21
 
 ### Added
