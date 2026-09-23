@@ -82,6 +82,9 @@ def _row_to_event(row: dict[str, Any]) -> dict[str, Any]:
 class PostgresStorage:
     """Multi-writer Postgres store. All methods are thread-safe."""
 
+    # Every replica reads and writes the same table.
+    shared = True
+
     def __init__(self, dsn: str, retention_days: int = 7, timeout: float = 15.0) -> None:
         _require_driver()
         self.dsn = dsn

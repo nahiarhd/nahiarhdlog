@@ -254,7 +254,9 @@
       $("health-text").textContent = "queue " + h.queued + " · dropped " + h.dropped + " · " + inst;
       $("health").title = "Backend " + inst + " · collector queue / dropped events";
       $("health-dot").className = "dot" + (h.dropped > 0 ? " warn" : " ok");
-      if (lastInstance && lastInstance !== inst && $("banner").classList.contains("hidden")) {
+      // Switching backends only loses data when each one has its own store.
+      if (!h.shared_storage && lastInstance && lastInstance !== inst &&
+          $("banner").classList.contains("hidden")) {
         showBanner("Dashboard reached a different backend (" + lastInstance + " → " + inst + "). " +
           "With multiple replicas each has its own database — enable sticky sessions for stable reads.");
       }

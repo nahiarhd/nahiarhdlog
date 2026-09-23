@@ -166,6 +166,8 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
             "fts_available": collector.storage.fts_available,
             "retention_days": collector.storage.retention_days,
             "instance": instance,
+            # A custom storage without the flag is assumed per-process.
+            "shared_storage": getattr(collector.storage, "shared", False),
         }
 
     @router.get("/api/logs", dependencies=[authed])

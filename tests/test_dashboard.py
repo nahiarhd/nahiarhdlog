@@ -99,6 +99,17 @@ def test_bare_prefix_redirects_to_slash(client_and_collector):
     assert "logs-table" in followed.text
 
 
+def test_health_reports_whether_replicas_share_storage(client_and_collector):
+    # The dashboard warns about switching backends only for per-process
+    # storage; with Postgres every replica reads the same events.
+    from nahiarhdLOG.postgres import PostgresStorage
+
+    client, _ = client_and_collector
+    health = client.get("/nahiarhdlog/api/health", params={"token": TOKEN}).json()
+    assert health["shared_storage"] is False
+    assert PostgresStorage.shared is True
+
+
 def test_api_without_token_is_json_401(client_and_collector):
     client, _ = client_and_collector
     r = client.get("/nahiarhdlog/api/health")

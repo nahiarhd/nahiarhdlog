@@ -61,6 +61,9 @@ def _row_to_event(row: sqlite3.Row) -> dict[str, Any]:
 class SQLiteStorage:
     """Single-writer SQLite store. All methods are thread-safe."""
 
+    # One file per process: replicas each see only their own events.
+    shared = False
+
     def __init__(
         self, path: str, retention_days: int = 7, timeout: float = 15.0
     ) -> None:
