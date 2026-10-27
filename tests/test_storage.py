@@ -283,6 +283,76 @@ def test_storage_insert_retry_on_lock(tmp_path):
         s.close()
 
 
+
+def test_storage_open_waits_for_wal_switch_lock(tmp_path):
+    """Switching a fresh file to WAL needs an exclusive lock, and SQLite returns
+    "database is locked" at once there instead of honouring busy_timeout. Opening
+    must wait for the holder instead of failing."""
+    db_path = str(tmp_path / "fresh.db")
+    holder = sqlite3.connect(db_path, isolation_level=None, check_same_thread=False)
+    holder.execute("BEGIN EXCLUSIVE")
+
+    def release_lock():
+        time.sleep(0.2)
+        holder.execute("COMMIT")
+
+    t = threading.Thread(target=release_lock)
+    t.start()
+    try:
+        s = SQLiteStorage(db_path, timeout=5.0)
+        try:
+            assert s._conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        finally:
+            s.close()
+    finally:
+        t.join()
+        holder.close()
+
+
+def test_storage_open_still_fails_when_lock_outlives_timeout(tmp_path):
+    db_path = str(tmp_path / "held.db")
+    holder = sqlite3.connect(db_path, isolation_level=None)
+    holder.execute("BEGIN EXCLUSIVE")
+    try:
+        started = time.monotonic()
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            SQLiteStorage(db_path, timeout=0.3)
+        assert time.monotonic() - started < 3.0
+    finally:
+        holder.close()
+
+
+def _open_storage_in_worker(path, barrier, results):
+    barrier.wait()
+    try:
+        SQLiteStorage(path).close()
+        results.put("ok")
+    except Exception as exc:
+        results.put(f"{type(exc).__name__}: {exc}")
+
+
+def test_storage_open_from_many_processes_on_a_fresh_file(tmp_path):
+    """The real symptom: uvicorn --workers N all open the same new file at boot.
+    Before the fix roughly a third of the opens failed with "database is locked"."""
+    import multiprocessing as mp
+
+    workers, rounds = 6, 4
+    failures = []
+    for i in range(rounds):
+        path = str(tmp_path / f"race{i}.db")
+        barrier, results = mp.Barrier(workers), mp.Queue()
+        procs = [
+            mp.Process(target=_open_storage_in_worker, args=(path, barrier, results))
+            for _ in range(workers)
+        ]
+        for proc in procs:
+            proc.start()
+        outcomes = [results.get(timeout=30) for _ in procs]
+        for proc in procs:
+            proc.join(timeout=30)
+        failures += [o for o in outcomes if o != "ok"]
+    assert failures == []
+
 class _FailingStorage(_FakeStorage):
     def __init__(self) -> None:
         super().__init__()

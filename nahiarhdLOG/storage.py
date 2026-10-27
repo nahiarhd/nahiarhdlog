@@ -81,7 +81,7 @@ class SQLiteStorage:
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.Lock()
         with self._lock:
-            self._conn.execute("PRAGMA journal_mode=WAL;")
+            self._enable_wal()
             self._conn.execute(f"PRAGMA busy_timeout={int(timeout * 1000)};")
             self._conn.executescript(_SCHEMA)
             self._fts = self._try_enable_fts()
@@ -89,6 +89,29 @@ class SQLiteStorage:
             self.purge()
         except Exception:
             pass
+
+    def _enable_wal(self) -> None:
+        """Switch to WAL, retrying while another connection holds the file.
+
+        On a fresh file the switch needs an exclusive lock, and SQLite answers
+        "database is locked" at once instead of waiting on busy_timeout, so
+        several processes opening one new file together (uvicorn --workers N)
+        lose the race. WAL is persistent, so once one wins the rest find it set.
+        Retries until ``self.timeout``, like ``insert_many``'s lock retries.
+        """
+        deadline = time.monotonic() + self.timeout
+        delay = 0.025
+        while True:
+            try:
+                self._conn.execute("PRAGMA journal_mode=WAL;")
+                return
+            except sqlite3.OperationalError as exc:
+                err_msg = str(exc).lower()
+                retryable = "locked" in err_msg or "busy" in err_msg
+                if not retryable or time.monotonic() >= deadline:
+                    raise
+                time.sleep(delay + random.uniform(0.005, 0.025))
+                delay = min(delay * 1.5, 0.5)
 
     @property
     def fts_available(self) -> bool:

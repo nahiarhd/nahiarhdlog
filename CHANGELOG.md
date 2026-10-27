@@ -5,6 +5,11 @@ All notable changes to `nahiarhdlog` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Several processes opening the same new SQLite file at once (e.g. `uvicorn --workers N` on a fresh deploy) no longer crash with `sqlite3.OperationalError: database is locked`. Switching a fresh file to WAL needs an exclusive lock, and SQLite returns that error immediately there instead of waiting on `busy_timeout`; `SQLiteStorage` now retries the switch with backoff until its `timeout`.
+
 ## [0.8.1] - 2026-09-23
 
 ### Fixed
