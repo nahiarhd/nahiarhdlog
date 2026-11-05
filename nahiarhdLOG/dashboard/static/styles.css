@@ -295,6 +295,9 @@ select.field { padding-right: 28px; cursor: pointer; }
 .btn.quiet { border-color: transparent; background: none; }
 .btn.quiet:hover { background: var(--hover); }
 .btn:disabled { opacity: 0.45; cursor: default; filter: none; background: var(--surface); }
+/* A primary action in flight ("Unlocking") keeps its fill and ink. */
+.btn.primary:disabled { opacity: 0.6; background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.brand-mark .hub { fill: var(--band); }
 .btn.copied { color: var(--good-ink); border-color: var(--good); background: var(--good-soft); }
 .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; user-select: none; }
 .check input { width: 16px; height: 16px; margin: 0; accent-color: var(--focus); }

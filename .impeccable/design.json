@@ -1,0 +1,1649 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-05T04:34:07+00:00",
+  "title": "Design System: nahiarhdlog",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Map White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Panel White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Raised Mist",
+        "canonical": "#eef1f5",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242526",
+          "#414244",
+          "#5f6164",
+          "#808286",
+          "#a3a5a8",
+          "#c8c9cb",
+          "#eeeef0"
+        ]
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Hover Mist",
+        "canonical": "#f2f5f9",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242526",
+          "#414244",
+          "#5f6164",
+          "#808286",
+          "#a3a5a8",
+          "#c8c9cb",
+          "#eeeef0"
+        ]
+      },
+      "select": {
+        "role": "neutral",
+        "displayName": "Selected Blue Wash",
+        "canonical": "#e4ecfb",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#232529",
+          "#3f4249",
+          "#5c616b",
+          "#7c8390",
+          "#a0a5b0",
+          "#c5c9d1",
+          "#eceef3"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#dce1e8",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242527",
+          "#404245",
+          "#5e6166",
+          "#7e8389",
+          "#a2a5aa",
+          "#c7c9cd",
+          "#edeef1"
+        ]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Control Edge",
+        "canonical": "#c2c9d3",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#232528",
+          "#3f4247",
+          "#5d6268",
+          "#7c838c",
+          "#a0a5ad",
+          "#c6c9cf",
+          "#eceff2"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Map Ink",
+        "canonical": "#0f1b2d",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#21252b",
+          "#3b434e",
+          "#576273",
+          "#74839a",
+          "#9aa6b8",
+          "#c1cad7",
+          "#eaeff7"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Secondary Ink",
+        "canonical": "#364254",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#22252b",
+          "#3c424d",
+          "#586271",
+          "#768397",
+          "#9ba6b6",
+          "#c2cad5",
+          "#eaeff6"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Slate",
+        "canonical": "#5b6676",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#22252a",
+          "#3d424b",
+          "#59626e",
+          "#788394",
+          "#9da6b3",
+          "#c3cad3",
+          "#ebeff4"
+        ]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus Blue",
+        "canonical": "#1d5fd6",
+        "tonalRamp": [
+          "#060b15",
+          "#122444",
+          "#1e3f7b",
+          "#2b5cb6",
+          "#3a7bf3",
+          "#73a4fa",
+          "#adcafc",
+          "#e6effe"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Signage Navy",
+        "canonical": "#14213d",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#20252e",
+          "#3a4253",
+          "#54617b",
+          "#7182a4",
+          "#98a5c1",
+          "#bfc9dd",
+          "#e9effa"
+        ]
+      },
+      "primary-ink": {
+        "role": "neutral",
+        "displayName": "Signage White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "band": {
+        "role": "primary",
+        "displayName": "Signage Navy",
+        "canonical": "#14213d",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#20252e",
+          "#3a4253",
+          "#54617b",
+          "#7182a4",
+          "#98a5c1",
+          "#bfc9dd",
+          "#e9effa"
+        ]
+      },
+      "band-ink": {
+        "role": "neutral",
+        "displayName": "Band White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "band-muted": {
+        "role": "neutral",
+        "displayName": "Band Slate",
+        "canonical": "#b3bed3",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#22252a",
+          "#3d424c",
+          "#5a6170",
+          "#798396",
+          "#9da5b5",
+          "#c3c9d5",
+          "#ebeff5"
+        ]
+      },
+      "band-rule": {
+        "role": "neutral",
+        "displayName": "Band Seam",
+        "canonical": "#2a3a5e",
+        "tonalRamp": [
+          "#090b0f",
+          "#202530",
+          "#384256",
+          "#53617f",
+          "#6f82aa",
+          "#96a5c5",
+          "#bec9e1",
+          "#e8effc"
+        ]
+      },
+      "band-fill": {
+        "role": "neutral",
+        "displayName": "Band Glass",
+        "canonical": "rgba(255, 255, 255, 0.07)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "l-request": {
+        "role": "secondary",
+        "displayName": "Request Blue",
+        "canonical": "#1d5fd6",
+        "tonalRamp": [
+          "#060b15",
+          "#122444",
+          "#1e3f7b",
+          "#2b5cb6",
+          "#3a7bf3",
+          "#73a4fa",
+          "#adcafc",
+          "#e6effe"
+        ]
+      },
+      "l-llm": {
+        "role": "secondary",
+        "displayName": "LLM Violet",
+        "canonical": "#7b3fd0",
+        "tonalRamp": [
+          "#0c0914",
+          "#291c42",
+          "#4a3077",
+          "#6e45b1",
+          "#935cec",
+          "#b18dfb",
+          "#cfbdfd",
+          "#f0ebff"
+        ]
+      },
+      "l-agent": {
+        "role": "secondary",
+        "displayName": "Agent Indigo",
+        "canonical": "#5a3dc2",
+        "tonalRamp": [
+          "#0a0a15",
+          "#231f42",
+          "#3f3678",
+          "#5d4eb3",
+          "#7d68ee",
+          "#9f95fd",
+          "#c4c2fe",
+          "#edecff"
+        ]
+      },
+      "l-tool": {
+        "role": "secondary",
+        "displayName": "Tool Orange",
+        "canonical": "#d9640f",
+        "tonalRamp": [
+          "#120905",
+          "#3a1c0a",
+          "#682f0b",
+          "#9b4403",
+          "#c9601a",
+          "#e58b5a",
+          "#fab897",
+          "#feeae0"
+        ]
+      },
+      "l-db": {
+        "role": "secondary",
+        "displayName": "Database Teal",
+        "canonical": "#00877a",
+        "tonalRamp": [
+          "#060d0c",
+          "#102a27",
+          "#184c45",
+          "#1d7065",
+          "#269588",
+          "#6cb5a9",
+          "#a4d5cc",
+          "#daf5f0"
+        ]
+      },
+      "l-cache": {
+        "role": "secondary",
+        "displayName": "Cache Yellow",
+        "canonical": "#c99a00",
+        "tonalRamp": [
+          "#0e0b04",
+          "#2f2305",
+          "#533f03",
+          "#7a5c06",
+          "#a37c01",
+          "#c3a04d",
+          "#dfc68f",
+          "#fbedce"
+        ]
+      },
+      "l-http": {
+        "role": "secondary",
+        "displayName": "HTTP Sky",
+        "canonical": "#0a83bf",
+        "tonalRamp": [
+          "#060c11",
+          "#0f2838",
+          "#154764",
+          "#186895",
+          "#208bc7",
+          "#68addc",
+          "#a1d0f2",
+          "#e0f1fe"
+        ]
+      },
+      "l-auth": {
+        "role": "secondary",
+        "displayName": "Auth Magenta",
+        "canonical": "#c22e77",
+        "tonalRamp": [
+          "#13070b",
+          "#3c1626",
+          "#6c2444",
+          "#9f3265",
+          "#d44387",
+          "#eb7ba9",
+          "#ffadcc",
+          "#fee8ef"
+        ]
+      },
+      "l-embedding": {
+        "role": "secondary",
+        "displayName": "Embedding Olive",
+        "canonical": "#5b8812",
+        "tonalRamp": [
+          "#090d05",
+          "#1d2a0f",
+          "#344a16",
+          "#4b6d1c",
+          "#659225",
+          "#8eb366",
+          "#b9d49e",
+          "#e5f5d6"
+        ]
+      },
+      "l-custom": {
+        "role": "secondary",
+        "displayName": "Custom Brown",
+        "canonical": "#8a5a2b",
+        "tonalRamp": [
+          "#0e0a07",
+          "#2f2216",
+          "#553c25",
+          "#7d5836",
+          "#a87649",
+          "#c49c79",
+          "#e0c3aa",
+          "#fcebdd"
+        ]
+      },
+      "l-log": {
+        "role": "secondary",
+        "displayName": "Log Grey",
+        "canonical": "#7b8494",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232529",
+          "#3e424a",
+          "#5b626d",
+          "#7a8392",
+          "#9ea5b2",
+          "#c4c9d3",
+          "#eceff4"
+        ]
+      },
+      "b-blue": {
+        "role": "secondary",
+        "displayName": "Band Blue",
+        "canonical": "#78a4ff",
+        "tonalRamp": [
+          "#080b12",
+          "#19253c",
+          "#2c416c",
+          "#405fa0",
+          "#567fd5",
+          "#82a4e9",
+          "#b0c9fb",
+          "#e7effe"
+        ]
+      },
+      "b-red": {
+        "role": "secondary",
+        "displayName": "Band Red",
+        "canonical": "#ff7a6e",
+        "tonalRamp": [
+          "#130807",
+          "#3b1a16",
+          "#6a2b26",
+          "#9d3e37",
+          "#d2534a",
+          "#e9857a",
+          "#fdb4ab",
+          "#fee9e6"
+        ]
+      },
+      "b-green": {
+        "role": "secondary",
+        "displayName": "Band Green",
+        "canonical": "#4fd690",
+        "tonalRamp": [
+          "#050e08",
+          "#0b2c1b",
+          "#074f2f",
+          "#0c7446",
+          "#0b9b5f",
+          "#5fbb87",
+          "#9ddab4",
+          "#d6f9e2"
+        ]
+      },
+      "b-violet": {
+        "role": "secondary",
+        "displayName": "Band Violet",
+        "canonical": "#b896ff",
+        "tonalRamp": [
+          "#0c0a12",
+          "#281f3a",
+          "#473769",
+          "#6a509b",
+          "#8d6ccf",
+          "#ad95e3",
+          "#cfbff7",
+          "#f0ebfe"
+        ]
+      },
+      "b-amber": {
+        "role": "secondary",
+        "displayName": "Band Amber",
+        "canonical": "#ffb547",
+        "tonalRamp": [
+          "#100a04",
+          "#332106",
+          "#5a3b05",
+          "#83570a",
+          "#af7409",
+          "#cf9a4e",
+          "#e9c290",
+          "#ffebd3"
+        ]
+      },
+      "b-amber-ink": {
+        "role": "neutral",
+        "displayName": "Band Amber Ink",
+        "canonical": "#2b1b00",
+        "tonalRamp": [
+          "#0d0b08",
+          "#29241c",
+          "#4a4032",
+          "#6d5f48",
+          "#937f62",
+          "#b2a38b",
+          "#d3c7b7",
+          "#f4ede4"
+        ]
+      },
+      "disrupt": {
+        "role": "tertiary",
+        "displayName": "Disruption Red",
+        "canonical": "#d2281f",
+        "tonalRamp": [
+          "#140706",
+          "#401611",
+          "#73221b",
+          "#aa2e24",
+          "#e23e31",
+          "#f77a6b",
+          "#fdb4a9",
+          "#fee9e5"
+        ]
+      },
+      "disrupt-soft": {
+        "role": "tertiary",
+        "displayName": "Disruption Wash",
+        "canonical": "#fdecea",
+        "tonalRamp": [
+          "#0c0b0b",
+          "#282423",
+          "#47403f",
+          "#695e5d",
+          "#8d7e7d",
+          "#aea2a0",
+          "#d0c7c6",
+          "#f2edec"
+        ]
+      },
+      "disrupt-ink": {
+        "role": "tertiary",
+        "displayName": "Disruption Ink",
+        "canonical": "#a51b13",
+        "tonalRamp": [
+          "#130806",
+          "#3c1914",
+          "#6c2a22",
+          "#a03b30",
+          "#d55041",
+          "#ec8374",
+          "#fcb5a9",
+          "#fee9e5"
+        ]
+      },
+      "delay": {
+        "role": "tertiary",
+        "displayName": "Delay Amber",
+        "canonical": "#b46b00",
+        "tonalRamp": [
+          "#100a05",
+          "#34200c",
+          "#5d390f",
+          "#89530e",
+          "#b76f10",
+          "#d1985e",
+          "#eac099",
+          "#feebd9"
+        ]
+      },
+      "delay-soft": {
+        "role": "tertiary",
+        "displayName": "Delay Wash",
+        "canonical": "#fdf2de",
+        "tonalRamp": [
+          "#0c0b0a",
+          "#272520",
+          "#464138",
+          "#686053",
+          "#8b816f",
+          "#aca496",
+          "#cec8be",
+          "#f1eee8"
+        ]
+      },
+      "delay-ink": {
+        "role": "tertiary",
+        "displayName": "Delay Ink",
+        "canonical": "#8a5100",
+        "tonalRamp": [
+          "#0f0a06",
+          "#312111",
+          "#583b1c",
+          "#835626",
+          "#ae7434",
+          "#ca9a6d",
+          "#e4c2a2",
+          "#ffebd8"
+        ]
+      },
+      "good": {
+        "role": "tertiary",
+        "displayName": "Good Green",
+        "canonical": "#11804a",
+        "tonalRamp": [
+          "#060d08",
+          "#132b1c",
+          "#1e4d31",
+          "#297148",
+          "#369861",
+          "#73b78b",
+          "#a7d7b7",
+          "#dcf7e4"
+        ]
+      },
+      "good-soft": {
+        "role": "tertiary",
+        "displayName": "Good Wash",
+        "canonical": "#e3f4ea",
+        "tonalRamp": [
+          "#0a0b0b",
+          "#222624",
+          "#3d4440",
+          "#59645e",
+          "#78877e",
+          "#9ca8a1",
+          "#c3ccc6",
+          "#ebf0ed"
+        ]
+      },
+      "good-ink": {
+        "role": "tertiary",
+        "displayName": "Good Ink",
+        "canonical": "#0b6338",
+        "tonalRamp": [
+          "#070d09",
+          "#172a1e",
+          "#264b34",
+          "#376f4c",
+          "#499467",
+          "#7db48f",
+          "#aed4ba",
+          "#dff5e5"
+        ]
+      },
+      "info-soft": {
+        "role": "tertiary",
+        "displayName": "Info Wash",
+        "canonical": "#e7eefc",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#232528",
+          "#3f4248",
+          "#5d616b",
+          "#7c828f",
+          "#a0a5af",
+          "#c6c9d0",
+          "#eceef3"
+        ]
+      },
+      "info-ink": {
+        "role": "tertiary",
+        "displayName": "Info Ink",
+        "canonical": "#1a4fb4",
+        "tonalRamp": [
+          "#070b14",
+          "#152440",
+          "#244074",
+          "#345eac",
+          "#477ee5",
+          "#77a4f6",
+          "#adcafd",
+          "#e6effe"
+        ]
+      },
+      "critical-ink": {
+        "role": "tertiary",
+        "displayName": "Critical Ink",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "ground-dark": {
+        "role": "neutral",
+        "displayName": "Night Map Navy (dark)",
+        "canonical": "#0f1b36",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#21252e",
+          "#3a4253",
+          "#55617a",
+          "#7282a4",
+          "#98a5c0",
+          "#c0c9dd",
+          "#e9effa"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Panel Navy (dark)",
+        "canonical": "#15264a",
+        "tonalRamp": [
+          "#090b0f",
+          "#1f2531",
+          "#374257",
+          "#516181",
+          "#6d82ad",
+          "#94a5c7",
+          "#bdcae2",
+          "#e7effd"
+        ]
+      },
+      "surface-2-dark": {
+        "role": "neutral",
+        "displayName": "Raised Navy (dark)",
+        "canonical": "#1c2f58",
+        "tonalRamp": [
+          "#090b0f",
+          "#1f2532",
+          "#364259",
+          "#4f6184",
+          "#6b82b1",
+          "#92a5cb",
+          "#bccae5",
+          "#e7efff"
+        ]
+      },
+      "hover-dark": {
+        "role": "neutral",
+        "displayName": "Hover Navy (dark)",
+        "canonical": "#1a2c54",
+        "tonalRamp": [
+          "#090b0f",
+          "#1f2531",
+          "#374259",
+          "#506184",
+          "#6b82b0",
+          "#93a5ca",
+          "#bccae4",
+          "#e7effe"
+        ]
+      },
+      "select-dark": {
+        "role": "neutral",
+        "displayName": "Selected Blue (dark)",
+        "canonical": "#24407a",
+        "tonalRamp": [
+          "#080b11",
+          "#1c2536",
+          "#314261",
+          "#486190",
+          "#6181c0",
+          "#8ba5d7",
+          "#b6caee",
+          "#e6efff"
+        ]
+      },
+      "rule-dark": {
+        "role": "neutral",
+        "displayName": "Hairline (dark)",
+        "canonical": "#263d6a",
+        "tonalRamp": [
+          "#090b0f",
+          "#1e2533",
+          "#35425b",
+          "#4d6187",
+          "#6882b4",
+          "#90a6cd",
+          "#bacae7",
+          "#e6efff"
+        ]
+      },
+      "rule-strong-dark": {
+        "role": "neutral",
+        "displayName": "Control Edge (dark)",
+        "canonical": "#385385",
+        "tonalRamp": [
+          "#090b10",
+          "#1d2533",
+          "#33425d",
+          "#4b6189",
+          "#6582b7",
+          "#8ea6d0",
+          "#b9cae9",
+          "#e6efff"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Map Ink (dark)",
+        "canonical": "#e8edf5",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242527",
+          "#404246",
+          "#5e6167",
+          "#7e838a",
+          "#a2a5ab",
+          "#c7c9cd",
+          "#edeef1"
+        ]
+      },
+      "ink-2-dark": {
+        "role": "neutral",
+        "displayName": "Secondary Ink (dark)",
+        "canonical": "#c3ccda",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#232529",
+          "#3e4249",
+          "#5b626b",
+          "#7b8390",
+          "#9fa5b0",
+          "#c5c9d1",
+          "#eceff3"
+        ]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Muted Slate (dark)",
+        "canonical": "#94a1b6",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#22252b",
+          "#3c424c",
+          "#586271",
+          "#778397",
+          "#9ca6b6",
+          "#c2cad5",
+          "#eaeff6"
+        ]
+      },
+      "focus-dark": {
+        "role": "primary",
+        "displayName": "Lifted Focus Blue (dark)",
+        "canonical": "#78a4ff",
+        "tonalRamp": [
+          "#080b12",
+          "#19253c",
+          "#2c416c",
+          "#405fa0",
+          "#567fd5",
+          "#82a4e9",
+          "#b0c9fb",
+          "#e7effe"
+        ]
+      },
+      "primary-dark": {
+        "role": "primary",
+        "displayName": "Lifted Request Blue (dark)",
+        "canonical": "#78a4ff",
+        "tonalRamp": [
+          "#080b12",
+          "#19253c",
+          "#2c416c",
+          "#405fa0",
+          "#567fd5",
+          "#82a4e9",
+          "#b0c9fb",
+          "#e7effe"
+        ]
+      },
+      "primary-ink-dark": {
+        "role": "neutral",
+        "displayName": "Night Map Navy Ink (dark)",
+        "canonical": "#0f1b36",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#21252e",
+          "#3a4253",
+          "#55617a",
+          "#7282a4",
+          "#98a5c0",
+          "#c0c9dd",
+          "#e9effa"
+        ]
+      },
+      "band-dark": {
+        "role": "primary",
+        "displayName": "Deep Signage Navy (dark)",
+        "canonical": "#0a1430",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#21252f",
+          "#3a4253",
+          "#55617c",
+          "#7382a5",
+          "#98a5c1",
+          "#c0c9de",
+          "#e9eefb"
+        ]
+      },
+      "band-muted-dark": {
+        "role": "neutral",
+        "displayName": "Band Slate (dark)",
+        "canonical": "#a7b3cf",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#22252c",
+          "#3c424f",
+          "#596175",
+          "#77829c",
+          "#9ca5ba",
+          "#c2c9d8",
+          "#ebeef7"
+        ]
+      },
+      "band-rule-dark": {
+        "role": "neutral",
+        "displayName": "Band Seam (dark)",
+        "canonical": "#22355e",
+        "tonalRamp": [
+          "#090b0f",
+          "#1f2532",
+          "#364259",
+          "#506184",
+          "#6b82b0",
+          "#93a5ca",
+          "#bccae4",
+          "#e7efff"
+        ]
+      },
+      "l-request-dark": {
+        "role": "secondary",
+        "displayName": "Request Blue (dark)",
+        "canonical": "#78a4ff",
+        "tonalRamp": [
+          "#080b12",
+          "#19253c",
+          "#2c416c",
+          "#405fa0",
+          "#567fd5",
+          "#82a4e9",
+          "#b0c9fb",
+          "#e7effe"
+        ]
+      },
+      "l-llm-dark": {
+        "role": "secondary",
+        "displayName": "LLM Violet (dark)",
+        "canonical": "#b896ff",
+        "tonalRamp": [
+          "#0c0a12",
+          "#281f3a",
+          "#473769",
+          "#6a509b",
+          "#8d6ccf",
+          "#ad95e3",
+          "#cfbff7",
+          "#f0ebfe"
+        ]
+      },
+      "l-agent-dark": {
+        "role": "secondary",
+        "displayName": "Agent Indigo (dark)",
+        "canonical": "#9a8cff",
+        "tonalRamp": [
+          "#0a0a13",
+          "#23203e",
+          "#403970",
+          "#5e52a6",
+          "#7e6fdd",
+          "#a098ef",
+          "#c5c2fc",
+          "#edecfe"
+        ]
+      },
+      "l-tool-dark": {
+        "role": "secondary",
+        "displayName": "Tool Orange (dark)",
+        "canonical": "#ff9d57",
+        "tonalRamp": [
+          "#110905",
+          "#371e0d",
+          "#623511",
+          "#914c13",
+          "#c26718",
+          "#da9260",
+          "#f1bc9a",
+          "#feeadd"
+        ]
+      },
+      "l-db-dark": {
+        "role": "secondary",
+        "displayName": "Database Teal (dark)",
+        "canonical": "#3fd0bd",
+        "tonalRamp": [
+          "#050d0c",
+          "#082b27",
+          "#094d45",
+          "#107065",
+          "#139687",
+          "#59b8aa",
+          "#99d8cd",
+          "#d4f7f0"
+        ]
+      },
+      "l-cache-dark": {
+        "role": "secondary",
+        "displayName": "Cache Yellow (dark)",
+        "canonical": "#f1c94b",
+        "tonalRamp": [
+          "#0e0b04",
+          "#2e2405",
+          "#514002",
+          "#765e03",
+          "#9c7f1a",
+          "#bfa24c",
+          "#dcc88f",
+          "#f9eece"
+        ]
+      },
+      "l-http-dark": {
+        "role": "secondary",
+        "displayName": "HTTP Sky (dark)",
+        "canonical": "#55c0f0",
+        "tonalRamp": [
+          "#060c10",
+          "#0e2835",
+          "#12485f",
+          "#116a8c",
+          "#148ebb",
+          "#65b0d3",
+          "#9fd1eb",
+          "#dcf3ff"
+        ]
+      },
+      "l-auth-dark": {
+        "role": "secondary",
+        "displayName": "Auth Magenta (dark)",
+        "canonical": "#ff7cb6",
+        "tonalRamp": [
+          "#12080c",
+          "#391827",
+          "#672945",
+          "#983b66",
+          "#cb4f89",
+          "#e381aa",
+          "#f9b1cd",
+          "#fee8f0"
+        ]
+      },
+      "l-embedding-dark": {
+        "role": "secondary",
+        "displayName": "Embedding Olive (dark)",
+        "canonical": "#a7cf4f",
+        "tonalRamp": [
+          "#090d05",
+          "#1f2909",
+          "#374a07",
+          "#526c0d",
+          "#6f900f",
+          "#94b259",
+          "#bdd396",
+          "#e7f5d2"
+        ]
+      },
+      "l-custom-dark": {
+        "role": "secondary",
+        "displayName": "Custom Brown (dark)",
+        "canonical": "#d4a272",
+        "tonalRamp": [
+          "#0e0a07",
+          "#2f2216",
+          "#543d26",
+          "#7c5936",
+          "#a67749",
+          "#c29d7a",
+          "#dfc4ab",
+          "#fbebdd"
+        ]
+      },
+      "l-log-dark": {
+        "role": "secondary",
+        "displayName": "Log Grey (dark)",
+        "canonical": "#8f9aad",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#22252a",
+          "#3d424b",
+          "#5a626f",
+          "#788395",
+          "#9da5b4",
+          "#c3c9d4",
+          "#ebeff5"
+        ]
+      },
+      "disrupt-dark": {
+        "role": "tertiary",
+        "displayName": "Disruption Red (dark)",
+        "canonical": "#ff6b5e",
+        "tonalRamp": [
+          "#130806",
+          "#3e1814",
+          "#6e2822",
+          "#a33730",
+          "#d94a41",
+          "#ef8074",
+          "#ffb3a9",
+          "#ffe9e5"
+        ]
+      },
+      "disrupt-soft-dark": {
+        "role": "tertiary",
+        "displayName": "Disruption Wash (dark)",
+        "canonical": "#44203a",
+        "tonalRamp": [
+          "#0e0a0c",
+          "#2c2129",
+          "#503a49",
+          "#76566b",
+          "#9d7390",
+          "#bb99b0",
+          "#dac1d1",
+          "#f8eaf3"
+        ]
+      },
+      "disrupt-ink-dark": {
+        "role": "tertiary",
+        "displayName": "Disruption Ink (dark)",
+        "canonical": "#ffa199",
+        "tonalRamp": [
+          "#100908",
+          "#351e1c",
+          "#5f3431",
+          "#8d4c47",
+          "#bc6660",
+          "#d6908a",
+          "#eebbb6",
+          "#fee9e6"
+        ]
+      },
+      "delay-dark": {
+        "role": "tertiary",
+        "displayName": "Delay Amber (dark)",
+        "canonical": "#ffb547",
+        "tonalRamp": [
+          "#100a04",
+          "#332106",
+          "#5a3b05",
+          "#83570a",
+          "#af7409",
+          "#cf9a4e",
+          "#e9c290",
+          "#ffebd3"
+        ]
+      },
+      "delay-soft-dark": {
+        "role": "tertiary",
+        "displayName": "Delay Wash (dark)",
+        "canonical": "#3c3324",
+        "tonalRamp": [
+          "#0c0b0a",
+          "#272520",
+          "#464139",
+          "#686053",
+          "#8b8170",
+          "#aca496",
+          "#cec8bf",
+          "#f1eee8"
+        ]
+      },
+      "delay-ink-dark": {
+        "role": "tertiary",
+        "displayName": "Delay Ink (dark)",
+        "canonical": "#ffcb7d",
+        "tonalRamp": [
+          "#0e0a05",
+          "#2f230f",
+          "#553d17",
+          "#7d5a1e",
+          "#a87828",
+          "#c49e67",
+          "#e0c59e",
+          "#fcecd6"
+        ]
+      },
+      "good-dark": {
+        "role": "tertiary",
+        "displayName": "Good Green (dark)",
+        "canonical": "#4fd690",
+        "tonalRamp": [
+          "#050e08",
+          "#0b2c1b",
+          "#074f2f",
+          "#0c7446",
+          "#0b9b5f",
+          "#5fbb87",
+          "#9ddab4",
+          "#d6f9e2"
+        ]
+      },
+      "good-soft-dark": {
+        "role": "tertiary",
+        "displayName": "Good Wash (dark)",
+        "canonical": "#163d3a",
+        "tonalRamp": [
+          "#090c0c",
+          "#1d2726",
+          "#334644",
+          "#4a6865",
+          "#648b87",
+          "#8eaca9",
+          "#b9cecc",
+          "#e5f2f0"
+        ]
+      },
+      "good-ink-dark": {
+        "role": "tertiary",
+        "displayName": "Good Ink (dark)",
+        "canonical": "#7fe3ad",
+        "tonalRamp": [
+          "#060d09",
+          "#122b1e",
+          "#1c4d34",
+          "#24714c",
+          "#319867",
+          "#70b790",
+          "#a6d7ba",
+          "#dbf7e6"
+        ]
+      },
+      "info-soft-dark": {
+        "role": "tertiary",
+        "displayName": "Info Wash (dark)",
+        "canonical": "#213f78",
+        "tonalRamp": [
+          "#080b10",
+          "#1c2536",
+          "#314261",
+          "#476190",
+          "#6082c0",
+          "#8aa6d7",
+          "#b6caee",
+          "#e6efff"
+        ]
+      },
+      "info-ink-dark": {
+        "role": "tertiary",
+        "displayName": "Info Ink (dark)",
+        "canonical": "#9fbfff",
+        "tonalRamp": [
+          "#090b10",
+          "#1d2535",
+          "#33425f",
+          "#4b618d",
+          "#6481bc",
+          "#8da5d4",
+          "#b8caec",
+          "#e6efff"
+        ]
+      },
+      "critical-ink-dark": {
+        "role": "tertiary",
+        "displayName": "Critical Ember (dark)",
+        "canonical": "#1d0705",
+        "tonalRamp": [
+          "#0d0a0a",
+          "#2b2321",
+          "#4d3e3b",
+          "#725b57",
+          "#997a75",
+          "#b79e9a",
+          "#d7c4c1",
+          "#f6ecea"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Stat figures in the metrics strip, tabular."
+      },
+      "count": {
+        "displayName": "Count",
+        "purpose": "Signature counts in the disruption list, in Disruption Ink."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Metrics line-status heading and the lock screen heading."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "The lowercase name beside the mark in the band."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "The inspector's event title."
+      },
+      "title-sm": {
+        "displayName": "Title Small",
+        "purpose": "Chart captions; 15px for the status popover heading, 13.5px for inspector section heads."
+      },
+      "tab": {
+        "displayName": "Tab",
+        "purpose": "Band tabs, each led by its line-coloured ring."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Base text, fields, empty-state copy (max 46ch)."
+      },
+      "body-dense": {
+        "displayName": "Body Dense",
+        "purpose": "Table cells, banners, error summaries, waterfall names."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Buttons; small buttons drop to 12.5px."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Station labels and form labels; band buttons and stat keys run at 600."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Meta lines, popover reason, key/value keys."
+      },
+      "column-head": {
+        "displayName": "Column Head",
+        "purpose": "Table and waterfall headers, in Muted."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Legends, last-seen times, trace fact labels, tooltips."
+      },
+      "chip": {
+        "displayName": "Chip",
+        "purpose": "Level, status and action chips; text keeps the data's own case."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Times, trace ids, key/value values, tracebacks and payloads (line-height 1.6 in blocks)."
+      },
+      "mono-path": {
+        "displayName": "Mono Path",
+        "purpose": "Request paths; signatures and the route id at 700."
+      },
+      "mono-small": {
+        "displayName": "Mono Small",
+        "purpose": "Band badges, kbd hints, method and code chips (700), histogram axis, waterfall ticks (500)."
+      },
+      "mono-axis": {
+        "displayName": "Mono Axis",
+        "purpose": "Chart axis and threshold labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "side-panel",
+        "value": "-14px 0 36px -14px rgba(10, 20, 44, 0.3)",
+        "purpose": "Inspector only, cast leftward onto the list beside it (light)."
+      },
+      {
+        "name": "side-panel-dark",
+        "value": "-14px 0 36px -14px rgba(0, 0, 0, 0.6)",
+        "purpose": "Inspector shadow in dark theme."
+      },
+      {
+        "name": "pop",
+        "value": "0 14px 34px -10px rgba(10, 20, 44, 0.32)",
+        "purpose": "Status popover and chart/histogram tooltip (light)."
+      },
+      {
+        "name": "pop-dark",
+        "value": "0 14px 34px -10px rgba(0, 0, 0, 0.6)",
+        "purpose": "Popover and tooltip shadow in dark theme."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The house curve for every authored transition and the route draw."
+      },
+      {
+        "name": "route-draw",
+        "value": "520ms cubic-bezier(0.16, 1, 0.3, 1), delay calc(var(--i) * 32ms), rows capped at 30",
+        "purpose": "The one orchestrated moment: each trace row's route strokes draw from start to end when a trace opens."
+      },
+      {
+        "name": "stop-in",
+        "value": "260ms cubic-bezier(0.16, 1, 0.3, 1), delay calc(var(--i) * 32ms + 180ms)",
+        "purpose": "Route stops and waterfall point marks fade in after their row's line has started drawing."
+      },
+      {
+        "name": "seg-grow",
+        "value": "520ms cubic-bezier(0.16, 1, 0.3, 1), delay calc(var(--i) * 32ms + 120ms)",
+        "purpose": "Waterfall duration bars grow from the left (scaleX 0 to 1)."
+      },
+      {
+        "name": "tab-underline",
+        "value": "transform 240ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The active tab's 4px line-coloured underline grows from the left."
+      },
+      {
+        "name": "inspector-slide",
+        "value": "transform 260ms cubic-bezier(0.16, 1, 0.3, 1); visibility 0s linear 260ms on close",
+        "purpose": "The inspector slides in from translateX(104%) and leaves the tab order once closed."
+      },
+      {
+        "name": "live-pulse",
+        "value": "1.6s ease-in-out infinite, opacity 0.35 at 50%",
+        "purpose": "The live-tail dot pulses while live tail runs; a state indicator, not an entrance."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce): animation none, transition none",
+        "purpose": "All motion off; routes, stops and bars render in their final drawn state."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "inspector-reserve",
+        "value": "min-width: 1200px"
+      },
+      {
+        "name": "stats-three-column",
+        "value": "max-width: 1100px"
+      },
+      {
+        "name": "phone",
+        "value": "max-width: 760px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Signage Band and Tabs",
+      "kind": "nav",
+      "refersTo": "band",
+      "description": "The 56px navy shell: mark and lowercase wordmark, then four tabs each led by a ring station and underlined in its own band line colour.",
+      "html": "<header class=\"ds-band\"><span class=\"ds-brand\"><svg class=\"ds-mark\" viewBox=\"0 0 32 32\" aria-hidden=\"true\"><path d=\"M5 21.5h7.5l7-7H27\" fill=\"none\" stroke=\"#78a4ff\" stroke-width=\"3.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19.5 5v22\" fill=\"none\" stroke=\"#b896ff\" stroke-width=\"3.4\" stroke-linecap=\"round\"/><circle cx=\"19.5\" cy=\"14.5\" r=\"4.4\" fill=\"#14213d\" stroke=\"#ffffff\" stroke-width=\"2.6\"/></svg><span class=\"ds-brand-name\">nahiarhdlog</span><span class=\"ds-brand-version\">v0.8.1</span></span><nav class=\"ds-tabs\" role=\"tablist\" aria-label=\"Views\"><button class=\"ds-tab ds-active\" role=\"tab\" aria-selected=\"true\" type=\"button\" style=\"--tab-line: var(--b-blue)\">Logs</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\" type=\"button\" style=\"--tab-line: var(--b-red)\">Errors</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\" type=\"button\" style=\"--tab-line: var(--b-green)\">Metrics</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\" type=\"button\" style=\"--tab-line: var(--b-violet)\">Trace</button></nav></header>",
+      "css": ".ds-band { display: flex; align-items: stretch; gap: 28px; height: 56px; padding: 0 24px; background: var(--band); color: var(--band-ink); border-bottom: 1px solid var(--band-rule); font-family: var(--font); } .ds-brand { display: flex; align-items: center; gap: 10px; flex: none; } .ds-mark { width: 28px; height: 28px; flex: none; } .ds-brand-name { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; } .ds-brand-version { font-family: var(--mono); font-size: 11.5px; color: var(--band-muted); } .ds-tabs { display: flex; align-items: stretch; gap: 2px; } .ds-tab { position: relative; display: flex; align-items: center; gap: 8px; padding: 2px 12px 0; border: 0; background: none; cursor: pointer; color: var(--band-muted); font: 650 14.5px var(--font); } .ds-tab::before { content: \"\"; width: 10px; height: 10px; border-radius: 50%; border: 2.5px solid var(--tab-line); box-sizing: border-box; } .ds-tab::after { content: \"\"; position: absolute; left: 8px; right: 8px; bottom: 0; height: 4px; border-radius: 4px 4px 0 0; background: var(--tab-line); transform: scaleX(0); transform-origin: left; transition: transform 240ms var(--ease-out); } .ds-tab:hover, .ds-tab.ds-active { color: var(--band-ink); } .ds-tab.ds-active::before { background: var(--tab-line); } .ds-tab.ds-active::after { transform: scaleX(1); } .ds-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -4px; border-radius: 4px; } @media (prefers-reduced-motion: reduce) { .ds-tab::after { transition: none; } }"
+    },
+    {
+      "name": "Service Status Button",
+      "kind": "custom",
+      "refersTo": "status-button",
+      "description": "The band's service board: an interchange status dot, the status in words, and queued or dropped badges only when their counts are above zero.",
+      "html": "<div class=\"ds-band-strip\"><button class=\"ds-status\" type=\"button\" data-status=\"good\" aria-label=\"Service status: Good service. Show details\"><span class=\"ds-dot\" aria-hidden=\"true\"></span>Good service</button><button class=\"ds-status\" type=\"button\" data-status=\"minor\" aria-label=\"Service status: Minor delays, 42 events queued. Show details\"><span class=\"ds-dot\" aria-hidden=\"true\"></span>Minor delays<span class=\"ds-queued\">42 queued</span></button><button class=\"ds-status\" type=\"button\" data-status=\"severe\" aria-label=\"Service status: Severe delays, 3 events dropped. Show details\"><span class=\"ds-dot\" aria-hidden=\"true\"></span>Severe delays<span class=\"ds-dropped\">3 dropped</span></button><button class=\"ds-status\" type=\"button\" data-status=\"idle\" aria-label=\"Service status: No traffic. Show details\"><span class=\"ds-dot\" aria-hidden=\"true\"></span>No traffic</button></div>",
+      "css": ".ds-band-strip { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: var(--band); } .ds-status { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px 0 11px; border: 1px solid var(--band-rule); border-radius: 999px; background: var(--band-fill); color: var(--band-ink); font: 600 13px var(--font); cursor: pointer; } .ds-status:hover { background: rgba(255, 255, 255, 0.13); } .ds-status:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; } .ds-dot { --c: var(--b-green); box-sizing: border-box; width: 10px; height: 10px; border-radius: 50%; flex: none; margin: 0 2px; background: var(--c); border: 2px solid var(--band); outline: 2px solid var(--c); } .ds-status[data-status=\"minor\"] .ds-dot { --c: #ffb547; } .ds-status[data-status=\"severe\"] .ds-dot, .ds-status[data-status=\"down\"] .ds-dot { --c: var(--b-red); } .ds-status[data-status=\"idle\"] .ds-dot, .ds-status[data-status=\"unknown\"] .ds-dot { --c: var(--band-muted); } .ds-queued { font: 600 11.5px var(--mono); color: var(--band-ink); background: rgba(255, 255, 255, 0.14); border-radius: 999px; padding: 1px 7px; } .ds-dropped { font: 600 11.5px var(--mono); color: #2b1b00; background: #ffb547; border-radius: 999px; padding: 1px 7px; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "One per toolbar (Search, Show trace, Unlock): Signage Navy in light, Lifted Request Blue in dark.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Search</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 14px; border: 1px solid var(--primary); border-radius: 7px; background: var(--primary); color: var(--primary-ink); font: 650 13.5px var(--font); cursor: pointer; white-space: nowrap; } .ds-btn-primary:hover { filter: brightness(1.12); } .ds-btn-primary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }"
+    },
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The default control key: Panel fill, Control Edge border, 7px corners; small (28px) in the inspector and trace head.",
+      "html": "<span class=\"ds-row\"><button class=\"ds-btn\" type=\"button\">Refresh</button><button class=\"ds-btn ds-btn-small\" type=\"button\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"11\" height=\"11\" rx=\"2\"/><path d=\"M5 15V6a2 2 0 0 1 2-2h8\"/></svg>Copy trace id</button><button class=\"ds-btn ds-copied\" type=\"button\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg>Copied</button><button class=\"ds-btn\" type=\"button\" disabled>Older</button></span>",
+      "css": ".ds-row { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; } .ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 14px; border: 1px solid var(--rule-strong); border-radius: 7px; background: var(--surface); color: var(--ink); font: 650 13.5px var(--font); cursor: pointer; white-space: nowrap; } .ds-btn:hover { background: var(--hover); border-color: var(--muted); } .ds-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; } .ds-btn-small { height: 28px; padding: 0 10px; font-size: 12.5px; } .ds-btn:disabled { opacity: 0.45; cursor: default; background: var(--surface); } .ds-btn.ds-copied { color: var(--good-ink); border-color: var(--good); background: var(--good-soft); } .ds-icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Borderless until hover, for secondary actions beside a primary (Clear filters, Recent traces) and the inspector close.",
+      "html": "<span class=\"ds-row\"><button class=\"ds-btn-quiet\" type=\"button\">Clear filters</button><button class=\"ds-btn-quiet ds-icon-only\" type=\"button\" aria-label=\"Close inspector\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button></span>",
+      "css": ".ds-row { display: inline-flex; gap: 8px; align-items: center; } .ds-btn-quiet { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 14px; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--ink); font: 650 13.5px var(--font); cursor: pointer; white-space: nowrap; } .ds-btn-quiet:hover { background: var(--hover); } .ds-btn-quiet:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; } .ds-icon-only { width: 34px; padding: 0; } .ds-icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "34px field with an inset magnifier and a / kbd hint that hides on focus or once the field has a value.",
+      "html": "<label class=\"ds-search\"><svg class=\"ds-search-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"M20 20l-4.2-4.2\"/></svg><input class=\"ds-field\" type=\"search\" placeholder=\"Search messages\" aria-label=\"Search messages\"><span class=\"ds-kbd\" aria-hidden=\"true\">/</span></label>",
+      "css": ".ds-search { position: relative; display: flex; width: 320px; max-width: 100%; } .ds-field { width: 100%; height: 34px; padding: 0 10px 0 34px; border: 1px solid var(--rule-strong); border-radius: 7px; background: var(--surface); color: var(--ink); font: 400 14px/1 var(--font); caret-color: var(--focus); } .ds-field:hover { border-color: var(--muted); } .ds-field::placeholder { color: var(--muted); opacity: 1; } .ds-field:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; } .ds-search-icon { position: absolute; left: 11px; top: 9px; width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; } .ds-kbd { position: absolute; right: 8px; top: 7px; font: 11.5px/18px var(--mono); color: var(--muted); border: 1px solid var(--rule-strong); border-radius: 4px; padding: 0 5px; pointer-events: none; } .ds-field:focus + .ds-kbd, .ds-field:not(:placeholder-shown) + .ds-kbd { display: none; }"
+    },
+    {
+      "name": "Level, Status and Filter Chips",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "20px data chips in wash-and-ink pairs; CRITICAL is the one solid chip; filter and range chips are removable Info pills.",
+      "html": "<span class=\"ds-chips\"><span class=\"ds-chip ds-debug\">DEBUG</span><span class=\"ds-chip ds-info\">INFO</span><span class=\"ds-chip ds-warn\">WARNING</span><span class=\"ds-chip ds-err\">ERROR</span><span class=\"ds-chip ds-crit\">CRITICAL</span><span class=\"ds-chip ds-code ds-outline\">GET</span><span class=\"ds-chip ds-code ds-info\">POST</span><span class=\"ds-chip ds-code ds-ok\">200</span><span class=\"ds-chip ds-code ds-warn\">404</span><span class=\"ds-chip ds-code ds-err\">500</span><span class=\"ds-filter-chip\">Last 15 minutes<button type=\"button\" aria-label=\"Remove selected time range\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M7 7l10 10M17 7L7 17\"/></svg></button></span></span>",
+      "css": ".ds-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; font-family: var(--font); } .ds-chip { display: inline-flex; align-items: center; height: 20px; padding: 1px 7px 0; border-radius: 5px; font-size: 11.5px; font-weight: 750; line-height: 1; white-space: nowrap; background: var(--surface-2); color: var(--ink-2); } .ds-debug { background: none; color: var(--muted); box-shadow: inset 0 0 0 1px var(--rule-strong); } .ds-outline { background: none; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--rule-strong); } .ds-info { background: var(--info-soft); color: var(--info-ink); } .ds-warn { background: var(--delay-soft); color: var(--delay-ink); } .ds-err { background: var(--disrupt-soft); color: var(--disrupt-ink); } .ds-ok { background: var(--good-soft); color: var(--good-ink); } .ds-crit { background: var(--disrupt); color: #fff; } [data-theme=\"dark\"] .ds-crit { color: #1d0705; } .ds-code { font-family: var(--mono); font-weight: 700; min-width: 3.9em; justify-content: center; } .ds-filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; font: 600 12.5px var(--font); background: var(--info-soft); color: var(--info-ink); } .ds-filter-chip button { display: inline-flex; border: 0; background: none; color: inherit; cursor: pointer; padding: 2px; border-radius: 50%; } .ds-filter-chip button:hover { background: color-mix(in srgb, currentColor 15%, transparent); } .ds-filter-chip button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; } .ds-icon { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }"
+    },
+    {
+      "name": "Station Markers",
+      "kind": "custom",
+      "refersTo": "station",
+      "description": "The line identity of every event: a 12px ring in the line colour around a Panel centre, then the kind name; errors and failed spans fill solid red.",
+      "html": "<span class=\"ds-stations\"><span class=\"ds-stn\" style=\"--line: var(--l-request)\"><span class=\"ds-stn-label\">request</span></span><span class=\"ds-stn\" style=\"--line: var(--l-llm)\"><span class=\"ds-stn-label\">llm</span></span><span class=\"ds-stn\" style=\"--line: var(--l-agent)\"><span class=\"ds-stn-label\">agent</span></span><span class=\"ds-stn\" style=\"--line: var(--l-tool)\"><span class=\"ds-stn-label\">tool</span></span><span class=\"ds-stn\" style=\"--line: var(--l-db)\"><span class=\"ds-stn-label\">db</span></span><span class=\"ds-stn\" style=\"--line: var(--l-cache)\"><span class=\"ds-stn-label\">cache</span></span><span class=\"ds-stn\" style=\"--line: var(--l-http)\"><span class=\"ds-stn-label\">http</span></span><span class=\"ds-stn\" style=\"--line: var(--l-auth)\"><span class=\"ds-stn-label\">auth</span></span><span class=\"ds-stn\" style=\"--line: var(--l-embedding)\"><span class=\"ds-stn-label\">embedding</span></span><span class=\"ds-stn\" style=\"--line: var(--l-custom)\"><span class=\"ds-stn-label\">custom</span></span><span class=\"ds-stn\" style=\"--line: var(--l-log)\"><span class=\"ds-stn-label\">log</span></span><span class=\"ds-stn ds-failed\" style=\"--line: var(--disrupt)\"><span class=\"ds-stn-label\">error</span></span></span>",
+      "css": ".ds-stations { display: inline-flex; flex-wrap: wrap; gap: 10px 18px; padding: 12px; background: var(--surface); } .ds-stn { display: inline-flex; align-items: center; gap: 8px; font: 650 13px var(--font); color: var(--ink-2); white-space: nowrap; } .ds-stn-label { padding-top: 2px; } .ds-stn::before { content: \"\"; width: 12px; height: 12px; border-radius: 50%; flex: none; border: 3px solid var(--line, var(--l-log)); background: var(--surface); box-sizing: border-box; } .ds-stn.ds-failed::before { background: var(--disrupt); border-color: var(--disrupt); }"
+    },
+    {
+      "name": "Log Table",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "The departure board: a flat Panel with Hairline rules, 38px rows, Mono times and trace ids, and state washes on failing rows.",
+      "html": "<div class=\"ds-table-wrap\"><table class=\"ds-table\"><thead><tr><th scope=\"col\">Time</th><th scope=\"col\">Line</th><th scope=\"col\">Level</th><th scope=\"col\">Message</th><th scope=\"col\">Trace</th></tr></thead><tbody><tr tabindex=\"0\"><td class=\"ds-time\">04:02:22</td><td><span class=\"ds-stn\" style=\"--line: var(--l-request)\"><span class=\"ds-stn-label\">request</span></span></td><td></td><td class=\"ds-msg\"><span class=\"ds-chip ds-code ds-info\">POST</span><span class=\"ds-path\">/login</span> <span class=\"ds-chip ds-code ds-ok\">200</span><span class=\"ds-dur\">1.2 ms</span></td><td><button class=\"ds-trace\" type=\"button\">885fe03d</button></td></tr><tr tabindex=\"0\" class=\"ds-crit-row\"><td class=\"ds-time\">04:02:22</td><td><span class=\"ds-stn ds-failed\"><span class=\"ds-stn-label\">error</span></span></td><td><span class=\"ds-chip ds-crit\">CRITICAL</span></td><td class=\"ds-msg\"><span class=\"ds-exc\">RuntimeError</span>: database connection lost</td><td><button class=\"ds-trace\" type=\"button\">fe11c2a5</button></td></tr><tr tabindex=\"0\" class=\"ds-selected\"><td class=\"ds-time\">04:02:22</td><td><span class=\"ds-stn\" style=\"--line: var(--l-llm)\"><span class=\"ds-stn-label\">llm</span></span></td><td><span class=\"ds-chip ds-info\">INFO</span></td><td class=\"ds-msg\"><span class=\"ds-name\">summarize</span><span class=\"ds-dur\">gpt-4o</span><span class=\"ds-dur\">46.3 ms</span></td><td><button class=\"ds-trace\" type=\"button\">41a35ac9</button></td></tr><tr tabindex=\"0\" class=\"ds-warn-row\"><td class=\"ds-time\">04:02:22</td><td><span class=\"ds-stn\" style=\"--line: var(--l-log)\"><span class=\"ds-stn-label\">log</span></span></td><td><span class=\"ds-chip ds-warn\">WARNING</span></td><td class=\"ds-msg\">tool slow for 6</td><td><button class=\"ds-trace\" type=\"button\">41a35ac9</button></td></tr></tbody></table></div>",
+      "css": ".ds-table-wrap { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; font-family: var(--font); color: var(--ink); } .ds-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13.5px; } .ds-table th { text-align: left; padding: 10px 12px; font-size: 12.5px; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--rule); } .ds-table td { padding: 0 12px; height: 38px; border-bottom: 1px solid var(--rule); vertical-align: middle; white-space: nowrap; font-variant-numeric: tabular-nums; } .ds-table tbody tr:last-child td { border-bottom: 0; } .ds-table tbody tr { cursor: pointer; } .ds-table tbody tr:hover { background: var(--hover); } .ds-table tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; } .ds-table tr.ds-selected { background: var(--select); } .ds-table tr.ds-crit-row, .ds-table tr.ds-crit-row:hover { background: var(--disrupt-soft); } .ds-table tr.ds-warn-row .ds-msg { color: var(--delay-ink); } .ds-time { font-family: var(--mono); font-size: 12.5px; color: var(--muted); } .ds-msg { width: 100%; } .ds-path { font-family: var(--mono); font-size: 13px; } .ds-dur { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: 6px; } .ds-name { font-weight: 650; } .ds-exc { font-weight: 750; color: var(--disrupt-ink); } .ds-trace { border: 0; background: none; padding: 0; cursor: pointer; color: var(--focus); font-family: var(--mono); font-size: 12.5px; } .ds-trace:hover { text-decoration: underline; text-underline-offset: 3px; } .ds-trace:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; } .ds-stn { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; color: var(--ink-2); } .ds-stn-label { padding-top: 2px; } .ds-stn::before { content: \"\"; width: 12px; height: 12px; border-radius: 50%; flex: none; border: 3px solid var(--line, var(--l-log)); background: var(--surface); box-sizing: border-box; } .ds-stn.ds-failed::before { background: var(--disrupt); border-color: var(--disrupt); } .ds-chip { display: inline-flex; align-items: center; height: 20px; padding: 1px 7px 0; margin-right: 6px; border-radius: 5px; font-size: 11.5px; font-weight: 750; line-height: 1; vertical-align: 1px; } .ds-code { font-family: var(--mono); font-weight: 700; min-width: 3.9em; justify-content: center; } .ds-info { background: var(--info-soft); color: var(--info-ink); } .ds-ok { background: var(--good-soft); color: var(--good-ink); } .ds-warn { background: var(--delay-soft); color: var(--delay-ink); } .ds-crit { background: var(--disrupt); color: #fff; } [data-theme=\"dark\"] .ds-crit { color: #1d0705; }"
+    },
+    {
+      "name": "Disruption Row",
+      "kind": "custom",
+      "refersTo": "disruption-row",
+      "description": "An error signature read as a service disruption: red interchange dot and count, Mono signature, last seen, and the latest message.",
+      "html": "<div class=\"ds-disruptions\"><button class=\"ds-dis-row\" type=\"button\" title=\"Show these errors in Logs\"><span class=\"ds-dis-count\">2</span><span class=\"ds-dis-sig\">RuntimeError@demo_app.py:37</span><span class=\"ds-dis-when\">Last seen 13 min ago</span><span class=\"ds-dis-msg\">RuntimeError: database connection lost</span></button></div>",
+      "css": ".ds-disruptions { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; font-family: var(--font); color: var(--ink); } .ds-dis-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; align-items: center; gap: 4px 18px; width: 100%; padding: 14px 18px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; } .ds-dis-row:hover { background: var(--hover); } .ds-dis-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; } .ds-dis-count { grid-row: span 2; display: flex; align-items: center; gap: 9px; font-size: 22px; font-weight: 800; color: var(--disrupt-ink); font-variant-numeric: tabular-nums; } .ds-dis-count::before { content: \"\"; box-sizing: border-box; width: 12px; height: 12px; border-radius: 50%; flex: none; margin: 0 2px; background: var(--disrupt); border: 2px solid var(--surface); outline: 2px solid var(--disrupt); } .ds-dis-sig { font-family: var(--mono); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; } .ds-dis-when { font-size: 12.5px; color: var(--muted); white-space: nowrap; text-align: right; } .ds-dis-msg { grid-column: 2 / 4; color: var(--ink-2); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
+    },
+    {
+      "name": "Trace Route Row",
+      "kind": "custom",
+      "refersTo": "waterfall-row",
+      "description": "The signature: each trace row draws its slice of the route (straight parent line, 45-degree branch, ring stop) beside a waterfall bar in the same line colour; the route draws itself once on open.",
+      "html": "<div class=\"ds-wf\"><div class=\"ds-wf-row\" tabindex=\"0\" role=\"button\" aria-label=\"/users/6, 61.5 ms, starts at +0 ms\" style=\"--i: 0\"><div class=\"ds-wf-info\"><svg class=\"ds-route\" width=\"30\" height=\"38\" viewBox=\"0 0 30 38\" aria-hidden=\"true\"><path pathLength=\"1\" d=\"M7 19V38\" style=\"stroke: var(--l-request)\"/><circle cx=\"7\" cy=\"19\" r=\"5\" style=\"stroke: var(--l-request)\"/></svg><span class=\"ds-wf-name\">GET /users/6</span></div><div class=\"ds-wf-dur\">61.5 ms</div><div class=\"ds-wf-track\"><div class=\"ds-wf-seg\" style=\"--line: var(--l-request); left: 0%; width: 100%\"></div></div></div><div class=\"ds-wf-row\" tabindex=\"0\" role=\"button\" aria-label=\"load_user, 10.2 ms, starts at +0.6 ms\" style=\"--i: 1\"><div class=\"ds-wf-info\"><svg class=\"ds-route\" width=\"30\" height=\"38\" viewBox=\"0 0 30 38\" aria-hidden=\"true\"><path pathLength=\"1\" d=\"M7 0V38\" style=\"stroke: var(--l-request)\"/><path pathLength=\"1\" d=\"M7 5L21 19\" style=\"stroke: var(--l-db)\"/><circle cx=\"21\" cy=\"19\" r=\"5\" style=\"stroke: var(--l-db)\"/></svg><span class=\"ds-wf-name\">load_user<span class=\"ds-sub\">db</span></span></div><div class=\"ds-wf-dur\">10.2 ms</div><div class=\"ds-wf-track\"><div class=\"ds-wf-seg\" style=\"--line: var(--l-db); left: 1%; width: 16.6%\"></div></div></div><div class=\"ds-wf-row\" tabindex=\"0\" role=\"button\" aria-label=\"tool slow for 6, starts at +60.1 ms\" style=\"--i: 2\"><div class=\"ds-wf-info\"><svg class=\"ds-route\" width=\"30\" height=\"38\" viewBox=\"0 0 30 38\" aria-hidden=\"true\"><path pathLength=\"1\" d=\"M7 0V5\" style=\"stroke: var(--l-request)\"/><path pathLength=\"1\" d=\"M7 5L21 19\" style=\"stroke: var(--l-log)\"/><circle class=\"ds-tick\" cx=\"21\" cy=\"19\" r=\"4.5\" style=\"fill: var(--delay)\"/></svg><span class=\"ds-wf-name\">tool slow for 6</span></div><div class=\"ds-wf-dur ds-at\">+60.1 ms</div><div class=\"ds-wf-track\"><div class=\"ds-wf-mark ds-lvl-warn\" style=\"left: 97.7%\"></div></div></div></div>",
+      "css": ".ds-wf { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; font-family: var(--font); color: var(--ink); } .ds-wf-row { display: grid; grid-template-columns: minmax(200px, 36%) 84px minmax(0, 1fr); gap: 16px; padding: 0 16px; height: 38px; align-items: stretch; cursor: pointer; } .ds-wf-row:hover { background: var(--hover); } .ds-wf-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; } .ds-wf-info { display: flex; align-items: center; gap: 8px; min-width: 0; } .ds-route { display: block; flex: none; height: 38px; overflow: visible; } .ds-route path { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; } .ds-route circle { stroke-width: 3; fill: var(--surface); } .ds-route circle.ds-tick { stroke-width: 0; } .ds-wf-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 650; } .ds-sub { color: var(--muted); font-weight: 500; margin-left: 6px; } .ds-wf-dur { align-self: center; text-align: right; font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); white-space: nowrap; } .ds-wf-dur.ds-at { color: var(--muted); } .ds-wf-track { position: relative; min-width: 0; background-image: linear-gradient(var(--rule), var(--rule)); background-size: 1px 100%; background-repeat: no-repeat; } .ds-wf-seg { position: absolute; top: 50%; height: 8px; margin-top: -4px; min-width: 8px; border-radius: 8px; background: var(--line, var(--l-log)); transform-origin: left center; } .ds-wf-mark { position: absolute; top: 50%; box-sizing: border-box; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; border: 3px solid var(--line, var(--l-log)); background: var(--surface); } .ds-wf-mark.ds-lvl-warn { background: var(--delay); border-color: var(--delay); } .ds-wf .ds-route path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: ds-route-draw 520ms var(--ease-out) forwards; animation-delay: calc(var(--i) * 32ms); } .ds-wf .ds-route circle, .ds-wf .ds-wf-mark { opacity: 0; animation: ds-stop-in 260ms var(--ease-out) forwards; animation-delay: calc(var(--i) * 32ms + 180ms); } .ds-wf .ds-wf-seg { transform: scaleX(0); animation: ds-seg-grow 520ms var(--ease-out) forwards; animation-delay: calc(var(--i) * 32ms + 120ms); } @keyframes ds-route-draw { to { stroke-dashoffset: 0; } } @keyframes ds-stop-in { to { opacity: 1; } } @keyframes ds-seg-grow { to { transform: scaleX(1); } } @media (prefers-reduced-motion: reduce) { .ds-wf .ds-route path, .ds-wf .ds-route circle, .ds-wf .ds-wf-mark, .ds-wf .ds-wf-seg { animation: none; } .ds-wf .ds-route path { stroke-dashoffset: 0; } .ds-wf .ds-route circle, .ds-wf .ds-wf-mark { opacity: 1; } .ds-wf .ds-wf-seg { transform: none; } }"
+    },
+    {
+      "name": "Empty State",
+      "kind": "custom",
+      "refersTo": "empty-state",
+      "description": "An empty route drawing (two stations, one 45-degree bend), a 15px Ink title, and one plain Muted sentence.",
+      "html": "<div class=\"ds-empty\"><svg viewBox=\"0 0 120 28\" aria-hidden=\"true\"><path d=\"M6 20H50l12-12H114\"/><circle cx=\"6\" cy=\"20\" r=\"4.5\"/><circle cx=\"114\" cy=\"8\" r=\"4.5\"/></svg><strong>No traces yet</strong><p>Every request starts a trace. Open one from a log row, or paste a trace id above.</p></div>",
+      "css": ".ds-empty { display: grid; justify-items: center; gap: 6px; padding: 44px 16px; text-align: center; color: var(--muted); font: 400 14px/1.45 var(--font); background: var(--surface); } .ds-empty svg { width: 120px; height: 28px; margin-bottom: 6px; } .ds-empty svg path { stroke: var(--rule-strong); stroke-width: 3; stroke-linecap: round; fill: none; } .ds-empty svg circle { stroke: var(--rule-strong); stroke-width: 3; fill: var(--surface); } .ds-empty strong { color: var(--ink); font-size: 15px; } .ds-empty p { margin: 0; max-width: 46ch; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Runtime Transit Map",
+    "overview": "The dashboard reads the host app's runtime the way a rider reads a network map. Each event kind is a line with a fixed colour, every log row carries the station marker of its line, and a trace is a route drawn stop by stop from the incoming request to wherever it failed. The shell is a navy signage band; the ground is a white map in light theme and a navy night map in dark. Red appears only where service is disrupted.\n\nDensity is operational, built for someone reading next to an editor: 38px rows, 34px controls, a 14px body, and panels that sit flat on the ground behind 1px rules. Hierarchy comes from weight in Overpass, a signage sans, far more than from size; its sibling Overpass Mono carries everything a developer copies or compares. The form language is the map's own: thick round-capped strokes, ring stations, interchange dots for status, and branches that leave their parent line at 45 degrees.\n\nBoth themes are complete: every colour token has a light and a dark value, and the theme is set before first paint from the saved choice or the OS. Motion is spent once, on drawing a trace's route; everything else is short state feedback. The system rejects the category default it replaced: a grey slate dashboard of KPI cards with one neon accent.",
+    "keyCharacteristics": [
+      "A fixed line palette with one colour per event kind, mirrored for each theme.",
+      "Red reserved for disruption, amber for delay, green for good service, blue washes for information.",
+      "A 56px navy signage band whose tabs are underlined in their own line colours.",
+      "Flat panels with 1px rules; shadows only on what floats over the map.",
+      "Overpass for words, Overpass Mono for ids, times, paths and measurements.",
+      "Ring stations, interchange status dots, 45-degree branches, round caps throughout.",
+      "One authored motion: the route draws itself when a trace opens."
+    ],
+    "rules": [
+      {
+        "name": "The Disruption Red Rule",
+        "body": "Red means something failed. No line is red, errors ride Disruption Red instead of a line, and a solid red fill appears only on failed stops, error stations, the CRITICAL chip, and status dots at severe or unreachable. A new use of red needs a failure behind it.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Kind, One Line Rule",
+        "body": "An event kind keeps its line colour everywhere it appears: table station, route segment, waterfall bar, inspector badge. A new kind gets its own `--l-*` pair, light and dark, before it ships; it never borrows a state colour or a neighbour's line.",
+        "section": "colors"
+      },
+      {
+        "name": "The Lifted Band Rule",
+        "body": "On the navy band, colour comes only from the band variants (Band Blue, Red, Green, Violet, Amber) and the band neutrals, never from the ground-map line or state values.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Is Measurement Rule",
+        "body": "Overpass Mono is for what a developer copies or compares: ids, timestamps, paths, durations, methods, status codes, signatures, axis ticks, payloads. Labels, headings and sentences stay in Overpass, even inside a mono column; the waterfall's \"Duration\" header switches back. All table cells, stat figures, counts, trace facts and tooltip values use tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Weight Ladder Rule",
+        "body": "Hierarchy steps by weight (400, 500, 600, 650, 700, 750, 800) inside a narrow 10.5px to 26px band. Nothing is set larger than 26px, and tracking tightens to -0.01em only at 17px and above.",
+        "section": "typography"
+      },
+      {
+        "name": "The Optical Drop Rule",
+        "body": "Overpass sits high in its line box, so text beside a marker drops onto the optical centre: station labels take 2px of top padding, chips 1px, tabs 2px.",
+        "section": "typography"
+      },
+      {
+        "name": "The Continuous Line Rule",
+        "body": "Trace rows are exactly 38px tall and each route drawing is 38px with its stop at 19px, so one row's line meets the next row's without a seam. Changing the row height breaks the route.",
+        "section": "layout"
+      },
+      {
+        "name": "The Reserved Inspector Rule",
+        "body": "From 1200px up, opening the inspector takes its width out of the page instead of covering the list, so the rows stay readable and walkable with J and K while an event is open.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Map Rule",
+        "body": "Anything that belongs to the map (panels, table, lists, cards, the lock card) sits flat with a 1px Hairline border. Only what floats over the map casts a shadow, and that shadow is always offset and softly blurred.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Ring and Fill Rule",
+        "body": "A station is a ring: line-coloured stroke around a Panel-coloured centre. A solid fill marks state: a failed station or stop fills Disruption Red, a warning stop fills Delay Amber, and the active tab fills its ring. Log events inside a route are the one exception, drawn as small solid ticks (3.5px radius) on their span's line, not as stations.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Interchange Rule",
+        "body": "Status is drawn as an interchange: a solid dot, a gap in the colour of whatever it sits on, and a ring of the same colour. The band status dot uses 10px with 2px gap and ring; the disruption count uses 12px with 2px; the Metrics line status uses 18px with 3px. Only service status and error counts use this form.",
+        "section": "shapes"
+      },
+      {
+        "name": "The 45-Degree Branch Rule",
+        "body": "Lines change direction only at 45 degrees, with equal run and rise: in the mark, in the empty-state route, and wherever a child event branches off its parent in a trace. Nothing curves.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do take every colour from a custom property declared on both `:root` and `[data-theme=\"dark\"]`; both themes ship finished.",
+      "Do give a new event kind its own `--l-*` line pair and show it as a ring station with a text label.",
+      "Do pair a state's wash with its ink (Disruption, Delay, Good, Info) for chips, banners and rows, and keep solid Disruption Red for failed stops, error stations and CRITICAL.",
+      "Do keep map panels flat: Panel fill, 1px Hairline border, 10px radius, 12 to 16px vertical and 16 to 18px horizontal padding, stacked 12px apart.",
+      "Do carry state in words as well as colour: the status dot travels with its status text, level chips spell the level, failed traces say \"Has errors\".",
+      "Do state empty and degraded conditions plainly: the empty-route drawing, a 15px Ink title, one Muted sentence; queued and dropped counts in the band whenever they are above zero.",
+      "Do keep the route draw as the only entrance animation, on `cubic-bezier(0.16, 1, 0.3, 1)`, and make every motion resolve to its final state under reduced motion.",
+      "Do draw icons as 24-grid stroke SVGs at 16px: 2px stroke, round caps and joins, `currentColor`, no fill."
+    ],
+    "donts": [
+      "Don't use red, or any colour from the Disruption family, for anything that did not fail.",
+      "Don't put ground-map line or state colours on the navy band; use the band variants.",
+      "Don't shadow a panel that sits on the map, and never use a shadow without blur.",
+      "Don't split the metrics into separate KPI cards; the five figures share one ruled strip.",
+      "Don't set labels or sentences in Overpass Mono, and don't set type larger than 26px.",
+      "Don't curve a route or a branch; lines turn at 45 degrees.",
+      "Don't change trace row height from 38px without redrawing the route geometry to match.",
+      "Don't load fonts, icons or scripts from the network; Overpass and Overpass Mono ship as local woff2 files.",
+      "Don't add hard-coded colours; the band amber, its ink, the band hover and badge whites, and the CRITICAL chip ink are existing literals, not a pattern to copy."
+    ]
+  }
+}

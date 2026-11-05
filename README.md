@@ -87,12 +87,12 @@ logger.add(NahiarhdHandler(collector), format="{message}")
 
 | Area | What you get |
 | ---- | ------------ |
-| Logs | Auto-captured stdlib records + requests; full-text search (FTS5), level/type/time/trace filters, pagination |
+| Logs | Auto-captured stdlib records + requests; full-text search (FTS5) with prefix matching, level/type/time/trace filters, an event-volume histogram you can click to narrow the range, pagination |
 | Errors | Grouped by `ExcType@file.py:line`, full tracebacks, top-errors ranking |
 | Alerts | Threshold rules (N events in M seconds) + cooldown; webhook, Telegram, and SMTP sinks |
 | Metrics | RPS, error rate, latency p50/p95, time-bucketed series — computed from the same request events |
-| Tracing | W3C `traceparent` in and out; one `trace_id` per request; interactive waterfall timeline; AI agent span tracing (`ai_span`, `span`); request & response payload inspection |
-| Dashboard | Embedded at `/nahiarhdlog`, token-locked, dark/light mode, mobile-friendly, live tail |
+| Tracing | W3C `traceparent` in and out; one `trace_id` per request; traces drawn as a route (spans nest under the request, logs under the span they ran in) with a timeline; AI agent span tracing (`ai_span`, `span`); request & response payload inspection |
+| Dashboard | Embedded at `/nahiarhdlog`, token-locked, follows the OS theme (with a toggle), mobile-friendly, live tail, service status in the header, side inspector with `J`/`K` navigation and copy-as-cURL, self-contained (fonts ship with the package) |
 
 <details>
 <summary><strong>Configuration</strong> — all arguments and <code>.env</code> wiring</summary>
