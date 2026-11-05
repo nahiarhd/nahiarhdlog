@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-05
+
 ### Changed
 - **Dashboard redesign.** The dashboard now draws the app's runtime as a transit network: every event kind is a line with its own colour (requests blue, LLM violet, tools orange, db teal, cache yellow, and so on), red is reserved for disruption, and the shell is a navy signage band with each tab underlined in its line colour. New mark and favicon. Type is Overpass and Overpass Mono, bundled with the package (SIL OFL 1.1, see `dashboard/static/fonts-OFL.txt`), so the dashboard still needs no network. Both themes follow the OS by default.
 - Traces render as a route diagram: spans branch off their parent's line at 45 degrees, logs and errors sit as stops on the span they ran inside, durations have their own column, and the route draws itself once when a trace opens (skipped under reduced motion).
