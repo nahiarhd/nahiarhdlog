@@ -354,7 +354,7 @@
   function renderStatusButton() {
     $("status-btn").setAttribute("data-status", lastStatus.key);
     $("status-text").textContent = lastStatus.title;
-    $("status-short").textContent = { good: "Good", minor: "Minor", severe: "Severe", idle: "Idle", down: "Down" }[lastStatus.key] || "Checking";
+    $("status-short").textContent = { good: "Good", minor: "Minor", severe: "Severe", idle: "No traffic", down: "Unreachable" }[lastStatus.key] || "Checking";
     $("pop-title").textContent = lastStatus.title;
     $("pop-reason").textContent = (lastStatus.reason ? lastStatus.reason + " " : "") +
       (lastStatus.key === "down" ? "" : STATUS_RULE);
@@ -1108,7 +1108,12 @@
         "<text class='thr' x='" + (W - R) + "' y='" + (ty - 5) + "' text-anchor='end' fill='" + t.color + "'>" + esc(t.label) + "</text>";
     });
     if (opts.noteId) {
-      $(opts.noteId).textContent = above.length ? "(" + above.join(" and ") + " are above this range)" : "";
+      var drawn = (opts.thresholds || []).length - above.length;
+      $(opts.noteId).textContent = above.length
+        ? (drawn ? "" : "Status thresholds ") + "(" + above.join(" and ") + (above.length === 1 ? " is" : " are") + " above this range)"
+        : "";
+      // A legend key only for marks the chart actually draws.
+      if (opts.swatchId) $(opts.swatchId).hidden = drawn === 0;
     }
     var paths = series.map(function (s) {
       // null = no samples in that bucket: break the line instead of
@@ -1202,7 +1207,7 @@
       { name: "p95", values: series.map(function (b) { return b.p95_ms; }), color: cssVar("--l-request"), fill: true },
       { name: "Average", values: series.map(function (b) { return b.avg_ms; }), color: cssVar("--l-log") },
     ], {
-      times: times, label: "p95 and average latency in milliseconds", legendId: "legend-lat", unit: " ms", noteId: "thr-note",
+      times: times, label: "p95 and average latency in milliseconds", legendId: "legend-lat", unit: " ms", noteId: "thr-note", swatchId: "thr-swatch",
       thresholds: [
         { v: 1000, label: "Minor delays, 1 s", short: "1 s", color: cssVar("--delay") },
         { v: 3000, label: "Severe delays, 3 s", short: "3 s", color: cssVar("--disrupt") },
