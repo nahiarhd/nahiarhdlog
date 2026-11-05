@@ -38,6 +38,8 @@
     <button class="band-btn status-btn" id="status-btn" type="button" data-status="unknown" aria-expanded="false" aria-controls="status-pop">
       <span class="status-dot" aria-hidden="true"></span>
       <span class="status-text" id="status-text">Checking service</span>
+      <span class="status-short" id="status-short" aria-hidden="true">Checking</span>
+      <span class="queued-badge hidden" id="queued-badge"></span>
       <span class="dropped-badge hidden" id="dropped-badge"></span>
     </button>
     <div class="status-pop hidden" id="status-pop" role="region" aria-label="Service status details">
@@ -161,10 +163,13 @@
         </div>
       </figure>
       <figure class="chart-card">
-        <figcaption>Average latency</figcaption>
+        <figcaption>Latency</figcaption>
         <div id="chart-lat"></div>
         <div class="chart-legend" id="legend-lat" hidden>
-          <span><i style="--c: var(--l-tool)"></i>Average, ms</span>
+          <span><i style="--c: var(--l-request)"></i>p95</span>
+          <span><i style="--c: var(--l-log)"></i>Average</span>
+          <span><i class="dashed" style="--c: var(--delay)"></i>Status thresholds</span>
+          <span id="thr-note"></span>
         </div>
       </figure>
     </div>

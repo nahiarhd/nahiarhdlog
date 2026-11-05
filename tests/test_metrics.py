@@ -111,3 +111,11 @@ def test_trace_duration_covers_work_after_the_response():
         {"ts": 100.03, "type": "span", "data": {"duration_ms": 120.0}},
     ]
     assert summarize_trace(events)["total_duration_ms"] == 150.0
+
+
+def test_series_reports_p95_per_bucket(storage):
+    now = 1_000.0
+    storage.insert_many([_request(now - 50, duration_ms=float(d)) for d in range(1, 21)])
+    series = timeseries(storage, window_seconds=100, buckets=2, now=now)
+    assert series[0]["p95_ms"] is None
+    assert series[1]["p95_ms"] == 19.0

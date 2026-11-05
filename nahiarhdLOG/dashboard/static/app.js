@@ -46,9 +46,12 @@
   }
   function pad2(n) { return n < 10 ? "0" + n : String(n); }
   function fmtTime(ts) {
+    // One unambiguous 24-hour form everywhere, down to the millisecond.
     if (ts == null) return "";
     var d = new Date(ts * 1000);
-    return d.toLocaleDateString() + " " + d.toLocaleTimeString();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
+      pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds()) + "." +
+      String(d.getMilliseconds()).padStart(3, "0");
   }
   function fmtTimeShort(ts) {
     if (ts == null) return "";
@@ -351,6 +354,7 @@
   function renderStatusButton() {
     $("status-btn").setAttribute("data-status", lastStatus.key);
     $("status-text").textContent = lastStatus.title;
+    $("status-short").textContent = { good: "Good", minor: "Minor", severe: "Severe", idle: "Idle", down: "Down" }[lastStatus.key] || "Checking";
     $("pop-title").textContent = lastStatus.title;
     $("pop-reason").textContent = (lastStatus.reason ? lastStatus.reason + " " : "") +
       (lastStatus.key === "down" ? "" : STATUS_RULE);
@@ -358,8 +362,14 @@
     var dropped = h ? h.dropped : 0;
     $("dropped-badge").classList.toggle("hidden", !(dropped > 0));
     $("dropped-badge").textContent = fmtNum(dropped) + " dropped";
+    var queued = h ? h.queued : 0;
+    $("queued-badge").classList.toggle("hidden", !(queued > 0));
+    $("queued-badge").textContent = fmtNum(queued) + " queued";
     var inst = h && h.instance ? h.instance.host + "/" + h.instance.pid : "unknown";
     $("status-btn").title = lastStatus.title + ". Backend " + inst;
+    $("status-btn").setAttribute("aria-label", "Service status: " + lastStatus.title +
+      (queued > 0 ? ", " + fmtNum(queued) + " events queued" : "") +
+      (dropped > 0 ? ", " + fmtNum(dropped) + " events dropped" : "") + ". Show details");
     if (!h) { $("pop-dl").innerHTML = ""; return; }
     var rows = [
       ["Queued events", fmtNum(h.queued)],
@@ -792,6 +802,8 @@
     if (!isInspectorOpen()) return;
     $("inspector").classList.remove("open");
     $("inspector").setAttribute("aria-hidden", "true");
+    document.body.classList.remove("inspecting");
+    if (lastVolume) renderVolume(lastVolume);
     state.selectedId = null;
     markSelected();
     if (opts && opts.restoreFocus && lastFocus && document.contains(lastFocus)) lastFocus.focus();
@@ -853,6 +865,8 @@
       var insp = $("inspector");
       insp.classList.add("open");
       insp.setAttribute("aria-hidden", "false");
+      document.body.classList.add("inspecting");
+      if (lastVolume) renderVolume(lastVolume);
       $("detail-body").scrollTop = 0;
     }).catch(function (err) {
       if (my !== reqSeq.detail) return;
@@ -870,7 +884,7 @@
     if (e.type === "request") {
       head = (d.method || "?") + " " + (d.path || "?");
       if (d.status != null) badges += statusChip(d.status);
-      add("Time", fmtTime(e.ts));
+      add("Time", fmtTime(e.ts), true);
       add("Duration", d.duration_ms == null ? null : fmtDur(d.duration_ms));
       add("Query", d.query ? "?" + d.query : null, true);
       add("Client", d.client, true);
@@ -889,7 +903,7 @@
       head = d.name || displayMessage(e);
       badges += d.status === "error" ? chip("Failed", "s5") : chip("OK", "s2");
       if (d.model) badges += chip(d.model, "model");
-      add("Time", fmtTime(e.ts));
+      add("Time", fmtTime(e.ts), true);
       add("Duration", d.duration_ms == null ? null : fmtDur(d.duration_ms));
       add("Span id", d.span_id, true);
       add("Parent span", d.parent_span_id, true);
@@ -911,7 +925,7 @@
       var summary = displayMessage(e);
       head = d.exc_type || summary;
       if (e.level) badges += chip(e.level);
-      add("Time", fmtTime(e.ts));
+      add("Time", fmtTime(e.ts), true);
       add("Signature", d.signature, true);
       add("Logger", d.logger, true);
       add("Location", d.pathname ? d.pathname + ":" + d.lineno + (d.func ? " in " + d.func : "") : null, true);
@@ -924,7 +938,7 @@
     } else {
       head = displayMessage(e);
       if (e.level) badges += chip(e.level);
-      add("Time", fmtTime(e.ts));
+      add("Time", fmtTime(e.ts), true);
       add("Logger", d.logger, true);
       add("Location", d.pathname ? d.pathname + ":" + d.lineno + (d.func ? " in " + d.func : "") : null, true);
     }
@@ -1058,7 +1072,8 @@
   }
   function lineChart(el, series, opts) {
     opts = opts || {};
-    var W = 560, H = 200, L = 40, R = 12, T = 12, B = 26;
+    // Sized from the container so tick labels stay at their real size.
+    var W = Math.max(300, Math.round(el.clientWidth || 560)), H = W < 480 ? 190 : 200, L = 40, R = 12, T = 12, B = 26;
     var integer = !!opts.integer;
     var times = opts.times || [];
     var max = Math.max.apply(null, [0].concat(series.map(function (s) {
@@ -1083,6 +1098,17 @@
         var anchor = k === 0 ? "start" : k === 2 ? "end" : "middle";
         xlabels += "<text class='axis' x='" + x(i).toFixed(1) + "' y='" + (H - 6) + "' text-anchor='" + anchor + "'>" + esc(fmtTimeShort(times[i])) + "</text>";
       });
+    }
+    var thr = "", above = [];
+    (opts.thresholds || []).forEach(function (t) {
+      if (t.v > max) { above.push(t.short); return; }
+      var ty = y(t.v);
+      thr += "<line x1='" + L + "' y1='" + ty + "' x2='" + (W - R) + "' y2='" + ty + "' stroke='" + t.color +
+        "' stroke-width='1.5' stroke-dasharray='5 4'/>" +
+        "<text class='thr' x='" + (W - R) + "' y='" + (ty - 5) + "' text-anchor='end' fill='" + t.color + "'>" + esc(t.label) + "</text>";
+    });
+    if (opts.noteId) {
+      $(opts.noteId).textContent = above.length ? "(" + above.join(" and ") + " are above this range)" : "";
     }
     var paths = series.map(function (s) {
       // null = no samples in that bucket: break the line instead of
@@ -1110,7 +1136,7 @@
     var legend = opts.legendId ? $(opts.legendId) : null;
     if (legend) legend.hidden = !hasData;
     el.innerHTML = hasData
-      ? "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='" + esc(opts.label || "chart") + "'>" + grid + paths + xlabels +
+      ? "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='" + esc(opts.label || "chart") + "'>" + grid + thr + paths + xlabels +
         "<line class='chart-cross' stroke='" + cssVar("--muted") + "' stroke-dasharray='3 3' visibility='hidden'/></svg>"
       : "<p class='chart-empty'>No requests in this window yet.</p>";
     if (hasData) bindChartHover(el, series, times, { W: W, L: L, R: R, T: T, B: B, H: H, n: n, x: x, integer: integer, unit: opts.unit || "" });
@@ -1173,8 +1199,15 @@
       { name: "Errors", values: series.map(function (b) { return b.errors; }), color: cssVar("--disrupt") },
     ], { times: times, integer: true, label: "Requests and errors over time", legendId: "legend-req" });
     lineChart($("chart-lat"), [
-      { name: "Average", values: series.map(function (b) { return b.avg_ms; }), color: cssVar("--l-tool"), fill: true },
-    ], { times: times, label: "Average latency in milliseconds", legendId: "legend-lat", unit: " ms" });
+      { name: "p95", values: series.map(function (b) { return b.p95_ms; }), color: cssVar("--l-request"), fill: true },
+      { name: "Average", values: series.map(function (b) { return b.avg_ms; }), color: cssVar("--l-log") },
+    ], {
+      times: times, label: "p95 and average latency in milliseconds", legendId: "legend-lat", unit: " ms", noteId: "thr-note",
+      thresholds: [
+        { v: 1000, label: "Minor delays, 1 s", short: "1 s", color: cssVar("--delay") },
+        { v: 3000, label: "Severe delays, 3 s", short: "3 s", color: cssVar("--disrupt") },
+      ],
+    });
   }
   function loadMetrics() {
     var my = ++reqSeq.metrics;
@@ -1301,6 +1334,12 @@
   // branch off their parent's line at 45 degrees, and stops sit on the line.
   var RW = 14, RH = 38, RMID = 19, MAX_DEPTH = 10;
   function lineVar(e) { return "var(--l-" + lineOf(e) + ")"; }
+  // Logs are stops on their span's line, coloured by level where it matters.
+  function stopVar(e) {
+    if (e.level === "ERROR" || e.level === "CRITICAL") return "var(--disrupt)";
+    if (e.level === "WARNING") return "var(--delay)";
+    return lineVar(e);
+  }
   function routeSvg(n, maxDepth) {
     var depth = Math.min(n.depth, MAX_DEPTH);
     var X = function (d) { return 7 + Math.min(d, MAX_DEPTH) * RW; };
@@ -1324,7 +1363,7 @@
     if (n.kids.length) seg("M" + X(depth) + " " + RMID + "V" + RH, lineVar(n.e));
     var stop;
     if (n.e.type === "log") {
-      stop = "<circle class='tick' cx='" + X(depth) + "' cy='" + RMID + "' r='3.5' style='fill:" + lineVar(n.e) + "'/>";
+      stop = "<circle class='tick' cx='" + X(depth) + "' cy='" + RMID + "' r='" + (stopVar(n.e) === lineVar(n.e) ? 3.5 : 4.5) + "' style='fill:" + stopVar(n.e) + "'/>";
     } else {
       stop = "<circle class='" + (failed(n.e) ? "fail" : "") + "' cx='" + X(depth) + "' cy='" + RMID + "' r='5' style='stroke:" + lineVar(n.e) + "'/>";
     }
@@ -1362,6 +1401,7 @@
         "</dl>" + models.map(function (m) { return chip(m, "model"); }).join("") +
         "<span class='push-right'><button type='button' class='btn small' data-copy-trace='" + esc(res.trace_id) + "'>" + ICON.copy + "Copy trace id</button></span></div>";
 
+      RW = window.innerWidth < 760 ? 10 : 14;
       var rows = buildTraceTree(res.events);
       var maxDepth = Math.min(MAX_DEPTH, rows.reduce(function (m, r) { return Math.max(m, r.depth); }, 0));
       var lastEnd = rows.reduce(function (acc, r) {
@@ -1387,7 +1427,8 @@
         var lbl = evDur > 0 ? fmtDur(evDur) : "";
         var mark = evDur > 0
           ? "<div class='wf-seg l-" + lineOf(e) + "' style='left:" + left.toFixed(2) + "%;width:" + width.toFixed(2) + "%'></div>"
-          : "<div class='wf-mark l-" + lineOf(e) + (failed(e) ? " fail" : "") + "' style='left:" + left.toFixed(2) + "%'></div>";
+          : "<div class='wf-mark l-" + lineOf(e) + (failed(e) || e.level === "ERROR" || e.level === "CRITICAL" ? " fail" : e.level === "WARNING" ? " lvl-warn" : "") +
+            "' style='left:" + left.toFixed(2) + "%'></div>";
         // Durations get their own column: labels beside bars collide with
         // names and with each other once bars cross the whole track.
         var durCell = lbl
@@ -1430,7 +1471,14 @@
       location.assign(BASE + "/");
     });
   });
-  window.addEventListener("resize", function () { if (lastVolume) renderVolume(lastVolume); });
+  var resizeFrame = 0;
+  window.addEventListener("resize", function () {
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(function () {
+      if (lastVolume) renderVolume(lastVolume);
+      if (state.view === "metrics" && lastMetrics) renderMetrics(lastMetrics);
+    });
+  });
   initToken();
   loadHealth();
   loadStatus();

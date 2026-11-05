@@ -89,6 +89,7 @@ def _series(
     sums = [0.0] * buckets
     counts = [0] * buckets
     errors = [0] * buckets
+    durations: list[list[float]] = [[] for _ in range(buckets)]
     for r in rows:
         idx = max(0, min(buckets - 1, int((r["ts"] - start) / width)))
         counts[idx] += 1
@@ -96,12 +97,16 @@ def _series(
             errors[idx] += 1
         if r["duration_ms"] is not None:
             sums[idx] += r["duration_ms"]
+            durations[idx].append(r["duration_ms"])
     return [
         {
             "ts": start + i * width,
             "count": counts[i],
             "errors": errors[i],
             "avg_ms": (sums[i] / counts[i]) if counts[i] else None,
+            # Per-bucket p95 gives the headline p95 (and the status verdict
+            # built on it) a visible history.
+            "p95_ms": quantile(sorted(durations[i]), 0.95),
         }
         for i in range(buckets)
     ]
