@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 import sqlite3
 import threading
 import time
@@ -40,6 +41,27 @@ END;
 """
 
 _MAX_LIMIT = 1000
+# Text with no letters/digits has no FTS tokens: an empty phrase matches
+# nothing, so such searches ("->", "%") go to LIKE instead.
+_WORDLIKE = re.compile(r"\w")
+
+
+def _as_text(value: Any) -> str:
+    # NOT NULL column; a non-str message must not fail the whole batch.
+    return "" if value is None else value if isinstance(value, str) else str(value)
+
+
+def _escape_like(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _fts_query(text: str) -> str:
+    """One quoted phrase whose last token also matches as a prefix.
+
+    Quoting keeps FTS5 operators (AND, NEAR, *, ...) literal; the prefix
+    makes search-as-you-type work ("timeo" finds "timeout").
+    """
+    return '"' + text.replace('"', '""') + '"*'
 
 
 def _row_to_event(row: sqlite3.Row) -> dict[str, Any]:
@@ -70,25 +92,47 @@ class SQLiteStorage:
         self.path = path
         self.retention_days = retention_days
         self.timeout = timeout
-        parent = os.path.dirname(os.path.abspath(path))
-        os.makedirs(parent, exist_ok=True)
-        self._conn = sqlite3.connect(
-            path,
-            timeout=timeout,
-            check_same_thread=False,
-            isolation_level=None,
-        )
-        self._conn.row_factory = sqlite3.Row
         self._lock = threading.Lock()
+        self._closed = True
+        self._fts = False
         with self._lock:
-            self._enable_wal()
-            self._conn.execute(f"PRAGMA busy_timeout={int(timeout * 1000)};")
-            self._conn.executescript(_SCHEMA)
-            self._fts = self._try_enable_fts()
+            self._open()
         try:
             self.purge()
         except Exception:
             pass
+
+    def _open(self) -> None:
+        """Connect and ensure the schema. Caller holds ``self._lock``."""
+        parent = os.path.dirname(os.path.abspath(self.path))
+        os.makedirs(parent, exist_ok=True)
+        conn = sqlite3.connect(
+            self.path,
+            timeout=self.timeout,
+            check_same_thread=False,
+            isolation_level=None,
+        )
+        conn.row_factory = sqlite3.Row
+        self._conn = conn
+        try:
+            self._enable_wal()
+            conn.execute(f"PRAGMA busy_timeout={int(self.timeout * 1000)};")
+            conn.executescript(_SCHEMA)
+            self._fts = self._try_enable_fts()
+        except Exception:
+            conn.close()
+            raise
+        self._closed = False
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
+    def reopen(self) -> None:
+        """Reconnect after `close()`, so a stopped collector can start again."""
+        with self._lock:
+            if self._closed:
+                self._open()
 
     def _enable_wal(self) -> None:
         """Switch to WAL, retrying while another connection holds the file.
@@ -129,10 +173,10 @@ class SQLiteStorage:
     ) -> int:
         rows = [
             (
-                e.get("ts", time.time()),
-                e.get("type", "log"),
+                e.get("ts") or time.time(),
+                e.get("type") or "log",
                 e.get("level"),
-                e.get("message", ""),
+                _as_text(e.get("message")),
                 e.get("trace_id"),
                 json.dumps(e.get("data") or {}, default=str),
             )
@@ -186,13 +230,13 @@ class SQLiteStorage:
         clauses: list[str] = []
         params: list[Any] = []
         join = ""
-        if text and self._fts and use_fts:
+        if text and self._fts and use_fts and _WORDLIKE.search(text):
             join = "JOIN events_fts f ON f.rowid = e.id"
             clauses.append("events_fts MATCH ?")
-            params.append('"' + text.replace('"', '""') + '"')
+            params.append(_fts_query(text))
         elif text:
-            clauses.append("e.message LIKE ?")
-            params.append(f"%{text}%")
+            clauses.append("e.message LIKE ? ESCAPE '\\'")
+            params.append(f"%{_escape_like(text)}%")
         if level:
             levels = [level] if isinstance(level, str) else list(level)
             clauses.append(f"e.level IN ({', '.join('?' * len(levels))})")
@@ -351,10 +395,14 @@ class SQLiteStorage:
             params.append(until)
         sql += " ORDER BY ts"
         with self._lock:
-            rows = self._conn.execute(sql, params).fetchall()
+            # Plain tuples: metrics read every request in the window, and
+            # sqlite3.Row adds measurable overhead per row.
+            cur = self._conn.cursor()
+            cur.row_factory = None
+            rows = cur.execute(sql, params).fetchall()
         return [
-            {"ts": r["ts"], "status": r["status"], "duration_ms": r["dur"]}
-            for r in rows
+            {"ts": ts, "status": status, "duration_ms": dur}
+            for ts, status, dur in rows
         ]
 
     def get(self, event_id: int) -> dict[str, Any] | None:
@@ -398,4 +446,6 @@ class SQLiteStorage:
 
     def close(self) -> None:
         with self._lock:
-            self._conn.close()
+            if not self._closed:
+                self._closed = True
+                self._conn.close()

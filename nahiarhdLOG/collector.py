@@ -26,6 +26,8 @@ _PURGE_INTERVAL = 3600.0  # seconds
 # Default on-disk location: a dot-directory keeps project roots clean.
 DEFAULT_DB_PATH = ".nahiarhdlog/nahiarhdlog.db"
 
+_ERROR_ONLY = frozenset({"error"})
+
 _active_collector: Collector | None = None
 
 
@@ -64,8 +66,16 @@ class Collector:
         self._stop = threading.Event()
         self._started = False
         self._last_purge = time.monotonic()
-        self._thread = threading.Thread(
-            target=self._run, name="nahiarhdlog-writer", daemon=True
+        self._thread = self._new_thread()
+
+    def _new_thread(self) -> threading.Thread:
+        # Each writer owns its stop event: a writer that outlived stop()'s
+        # join timeout must keep seeing "stop", even after a restart.
+        return threading.Thread(
+            target=self._run,
+            args=(self._stop,),
+            name="nahiarhdlog-writer",
+            daemon=True,
         )
 
     @property
@@ -77,9 +87,25 @@ class Collector:
     def queued(self) -> int:
         return self._queue.qsize()
 
+    @property
+    def running(self) -> bool:
+        return self._started
+
     def start(self) -> Collector:
+        """Start the writer. Safe to call again after `stop()`.
+
+        Restarting matters for apps whose lifespan runs more than once in
+        one process, e.g. a test suite opening `TestClient(app)` per test.
+        """
         if self._started:
             return self
+        if self._thread.ident is not None:
+            # Threads are single-use and stop() closed the storage.
+            reopen = getattr(self.storage, "reopen", None)
+            if reopen is not None:
+                reopen()
+            self._stop = threading.Event()
+            self._thread = self._new_thread()
         global _active_collector
         _active_collector = self
         self._started = True
@@ -93,13 +119,19 @@ class Collector:
                 **event,
                 "data": {**self._default_data, **(event.get("data") or {})},
             }
+        if not event.get("ts"):
+            # Stamp when it happened, not when the writer gets to it: the
+            # batch can land hundreds of ms later and reorder the trace.
+            event = {**event, "ts": time.time()}
         try:
             self._queue.put_nowait(event)
         except queue.Full:
             with self._lock:
                 self._dropped += 1
             return False
-        if self.alerter is not None and event.get("type") == "error":
+        if self.alerter is not None and event.get("type") in getattr(
+            self.alerter, "event_types", _ERROR_ONLY
+        ):
             try:
                 self.alerter.notify(event)
             except Exception:
@@ -122,11 +154,14 @@ class Collector:
         dashboard reads under continuous traffic stay fast (idle: instant).
         Returns False on timeout; callers proceed with whatever is visible.
         """
-        owed = self._queue.unfinished_tasks
+        # Read both counters atomically (the writer updates them together
+        # under the lock); otherwise a batch finishing between the two reads
+        # is counted as still owed and an idle dashboard waits the full timeout.
+        with self._lock:
+            owed = self._queue.unfinished_tasks
+            done_at_entry = self._completed
         if owed <= 0:
             return True
-        with self._lock:
-            done_at_entry = self._completed
         deadline = time.monotonic() + timeout
         while True:
             with self._lock:
@@ -152,15 +187,15 @@ class Collector:
         try:
             self.storage.insert_many(batch)
         finally:
-            for _ in batch:
-                self._queue.task_done()
             with self._lock:
+                for _ in batch:
+                    self._queue.task_done()
                 self._completed += len(batch)
 
-    def _run(self) -> None:
+    def _run(self, stop: threading.Event) -> None:
         batch: list[dict[str, Any]] = []
         last_flush = time.monotonic()
-        while not self._stop.is_set():
+        while not stop.is_set():
             try:
                 batch.append(self._queue.get(timeout=_FLUSH_INTERVAL))
             except queue.Empty:

@@ -144,12 +144,18 @@ def summarize_trace(events: list[dict[str, Any]]) -> dict[str, Any]:
         if "tool_calls" in data and isinstance(data["tool_calls"], list):
             tool_calls_count += len(data["tool_calls"])
 
-    if root_event and root_event.get("data", {}).get("duration_ms") is not None:
-        total_duration_ms = float(root_event["data"]["duration_ms"])
-    elif min_ts is not None and max_end_ts is not None:
-        total_duration_ms = round((max_end_ts - min_ts) * 1000.0, 3)
+    extent_ms = (
+        round((max_end_ts - min_ts) * 1000.0, 3)
+        if min_ts is not None and max_end_ts is not None
+        else 0.0
+    )
+    root_data = (root_event or {}).get("data") or {}
+    if root_data.get("duration_ms") is not None:
+        # Background work can outlive the response; the timeline must fit
+        # every event or the waterfall clips them at the right edge.
+        total_duration_ms = max(float(root_data["duration_ms"]), extent_ms)
     else:
-        total_duration_ms = 0.0
+        total_duration_ms = extent_ms
 
     return {
         "total_duration_ms": total_duration_ms,

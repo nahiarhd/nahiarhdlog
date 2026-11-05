@@ -190,7 +190,7 @@ observe(
 )
 ```
 
-Rules evaluate in a background thread; a failing sink never blocks the others.
+Rules evaluate in a background thread; a failing sink never blocks the others. A rule counts `error` events by default; set `event_type` to watch another kind, e.g. `Rule("traffic-spike", count=1000, window_seconds=60, event_type="request")`.
 
 ```bash
 pip install "nahiarhdlog[otel]"
@@ -275,6 +275,8 @@ Implement these 9 members (mirror `SQLiteStorage` in `storage.py`):
 | `purge() -> int` | Delete events older than retention; returns rows removed |
 | `close() -> None` | Release resources |
 | `fts_available -> bool` | Whether full-text search is active |
+
+Optionally add `reopen() -> None` (reconnect after `close()`) so a stopped collector can start again, e.g. when the app lifespan runs once per test.
 
 Event dicts look like `{id, ts, type, level, message, trace_id, data}`. Implementations must be thread-safe: writes come from one background thread, reads from request threads.
 

@@ -41,6 +41,12 @@ def observe(
     alerter = None
     if rules and sinks:
         alerter = Alerter(rules, sinks).start()
+    elif rules or sinks:
+        logger.warning(
+            "nahiarhdlog alerting is disabled: pass both rules= and sinks= "
+            "to observe() (got %s).",
+            "rules only" if rules else "sinks only",
+        )
     collector = Collector(
         db_path, retention_days=retention_days, alerter=alerter
     ).start()
@@ -74,17 +80,27 @@ def observe(
         )
         app.include_router(create_setup_router(prefix), prefix=prefix)
 
+    def _startup() -> None:
+        # No-op on the first run (observe() already started both). A later
+        # lifespan run in the same process (one TestClient per test) must
+        # restart them, or logging silently stops and the dashboard 500s.
+        if alerter is not None:
+            alerter.start()
+        collector.start()
+
     def _shutdown() -> None:
         collector.stop()
         if alerter is not None:
             alerter.stop()
 
-    _chain_shutdown(app, _shutdown)
+    _chain_lifespan(app, _startup, _shutdown)
     return collector
 
 
-def _chain_shutdown(app: Any, hook: Callable[[], None]) -> None:
-    """Run `hook` on app shutdown via lifespan composition.
+def _chain_lifespan(
+    app: Any, startup: Callable[[], None], shutdown: Callable[[], None]
+) -> None:
+    """Run `startup`/`shutdown` around the app lifespan via composition.
 
     Wraps `router.lifespan_context` so a user-defined lifespan keeps
     running untouched and its state passes through to requests.
@@ -97,17 +113,21 @@ def _chain_shutdown(app: Any, hook: Callable[[], None]) -> None:
     router = getattr(app, "router", None)
     prev = getattr(router, "lifespan_context", None)
     if prev is None:
+        legacy_up = getattr(router, "on_startup", None)
+        if legacy_up is not None:
+            legacy_up.append(startup)
         legacy = getattr(router, "on_shutdown", None)
         if legacy is not None:
-            legacy.append(hook)
+            legacy.append(shutdown)
         return
 
     @asynccontextmanager
     async def _nahiarhdlog_lifespan(inner_app: Any):
+        startup()
         try:
             async with prev(inner_app) as state:
                 yield state
         finally:
-            hook()
+            shutdown()
 
     router.lifespan_context = _nahiarhdlog_lifespan

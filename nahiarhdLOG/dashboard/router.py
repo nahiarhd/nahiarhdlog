@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 from .. import __version__
-from ..metrics import request_stats, timeseries
+from ..metrics import overview, request_stats, timeseries
 from ..query import (
     LogFilter,
     count_logs,
@@ -87,10 +87,29 @@ def _uncached(fn: Callable[..., Any]) -> Callable[..., JSONResponse]:
     return wrapper
 
 
+def _same_secret(provided: Any, expected: bytes) -> bool:
+    # compare_digest raises TypeError on non-ASCII str: compare UTF-8 bytes
+    # so `?token=é` is a clean 403 instead of a 500.
+    return hmac.compare_digest(str(provided).encode("utf-8"), expected)
+
+
+def _cookie_path(request: Request, suffix: str) -> str:
+    """The dashboard prefix, derived from this endpoint's own URL.
+
+    Scoping the cookie there keeps the token off every other request the
+    host app serves.
+    """
+    path = request.url.path
+    if path.endswith(suffix):
+        path = path[: -len(suffix)]
+    return path or "/"
+
+
 def create_dashboard_router(collector: Any, token: str) -> APIRouter:
     """Build the mountable dashboard router. Token is mandatory."""
     if not token:
         raise ValueError("dashboard token is required")
+    secret = token.encode("utf-8")
     instance = {"host": socket.gethostname(), "pid": os.getpid()}
 
     def _provided(request: Request) -> str | None:
@@ -107,12 +126,12 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
         provided = _provided(request)
         if not provided:
             raise HTTPException(status_code=401, detail="dashboard token required")
-        if not hmac.compare_digest(provided, token):
+        if not _same_secret(provided, secret):
             raise HTTPException(status_code=403, detail="invalid dashboard token")
 
     def _page(request: Request, name: str) -> FileResponse:
         provided = _provided(request)
-        if not provided or not hmac.compare_digest(provided, token):
+        if not provided or not _same_secret(provided, secret):
             return _static_file("lock.html", status_code=401)
         return _static_file(name)
 
@@ -140,18 +159,27 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
         except Exception:
             data = None
         provided = data.get("token") if isinstance(data, dict) else None
-        if not provided or not hmac.compare_digest(str(provided), token):
+        if not provided or not _same_secret(provided, secret):
             raise HTTPException(status_code=403, detail="invalid dashboard token")
         resp = JSONResponse({"ok": True}, headers=_NO_STORE)
         resp.set_cookie(
-            _COOKIE_NAME, token, httponly=True, samesite="lax", path="/"
+            _COOKIE_NAME,
+            token,
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https",
+            path=_cookie_path(request, "/api/login"),
         )
         return resp
 
     @router.post("/api/logout")
-    def logout() -> JSONResponse:
+    def logout(request: Request) -> JSONResponse:
         resp = JSONResponse({"ok": True}, headers=_NO_STORE)
-        resp.delete_cookie(_COOKIE_NAME, path="/")
+        path = _cookie_path(request, "/api/logout")
+        resp.delete_cookie(_COOKIE_NAME, path=path)
+        if path != "/":
+            # Versions <= 0.8.1 set the cookie on "/"; clear that one too.
+            resp.delete_cookie(_COOKIE_NAME, path="/")
         return resp
 
     @router.get("/api/health", dependencies=[authed])
@@ -229,6 +257,14 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
         resolved = events[0]["trace_id"] if events and events[0].get("trace_id") else trace_id
         summary = summarize_trace(events)
         return {"trace_id": resolved, "events": events, "summary": summary}
+
+    @router.get("/api/metrics", dependencies=[authed])
+    @_uncached
+    def metrics_overview(window: float = 3600, buckets: int = 60) -> dict[str, Any]:
+        collector.flush_pending()
+        window = max(60.0, min(float(window), 7 * 86400.0))
+        buckets = max(1, min(int(buckets), 500))
+        return overview(collector.storage, window_seconds=window, buckets=buckets)
 
     @router.get("/api/metrics/summary", dependencies=[authed])
     @_uncached

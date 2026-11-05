@@ -59,6 +59,10 @@ def export_trace(
         if etype == "request" and data.get("duration_ms") is not None:
             end_ns = start_ns + int(data["duration_ms"] * 1_000_000)
             name = f"{data.get('method', '?')} {data.get('path', '?')}"
+        elif etype == "span":
+            if data.get("duration_ms") is not None:
+                end_ns = start_ns + max(0, int(float(data["duration_ms"]) * 1_000_000))
+            name = str(data.get("name") or "span")
         elif etype == "error":
             name = str(data.get("signature") or "error")
         else:
@@ -80,7 +84,13 @@ def export_trace(
             for key in ("exc_type", "signature", "logger"):
                 if data.get(key) is not None:
                     span.set_attribute(f"nahiarhdlog.{key}", data[key])
-            if etype == "error":
+            for key in ("span_type", "span_id", "parent_span_id", "model"):
+                if data.get(key) is not None:
+                    span.set_attribute(f"nahiarhdlog.{key}", str(data[key]))
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                if isinstance(data.get(key), int):
+                    span.set_attribute(f"nahiarhdlog.{key}", data[key])
+            if etype == "error" or (etype == "span" and data.get("status") == "error"):
                 span.set_status(
                     trace.Status(
                         trace.StatusCode.ERROR, (event.get("message") or "")[:500]

@@ -109,7 +109,10 @@ class SmtpSink(AlertSink):
 @dataclass
 class _RuleState:
     hits: deque[float] = field(default_factory=deque)
-    last_fired: float = 0.0
+    # None = never fired. A 0.0 sentinel breaks on time.monotonic(), which
+    # counts from boot: within `cooldown_seconds` of boot the first alert
+    # would be suppressed as if one had fired at t=0.
+    last_fired: float | None = None
 
 
 class Alerter:
@@ -127,15 +130,28 @@ class Alerter:
         self._clock = clock or time.monotonic
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=queue_size)
         self._states = {r.name: _RuleState() for r in self.rules}
+        # The collector forwards only these event types, so a rule on
+        # e.g. "request" events actually sees them.
+        self.event_types = frozenset(r.event_type for r in self.rules)
         self._stop = threading.Event()
         self._started = False
-        self._thread = threading.Thread(
-            target=self._run, name="nahiarhdlog-alerter", daemon=True
+        self._thread = self._new_thread()
+
+    def _new_thread(self) -> threading.Thread:
+        return threading.Thread(
+            target=self._run,
+            args=(self._stop,),
+            name="nahiarhdlog-alerter",
+            daemon=True,
         )
 
     def start(self) -> Alerter:
+        """Start evaluating. Safe to call again after `stop()`."""
         if self._started:
             return self
+        if self._thread.ident is not None:
+            self._stop = threading.Event()
+            self._thread = self._new_thread()
         self._started = True
         self._thread.start()
         return self
@@ -153,8 +169,8 @@ class Alerter:
         self._stop.set()
         self._thread.join(timeout=timeout)
 
-    def _run(self) -> None:
-        while not self._stop.is_set():
+    def _run(self, stop: threading.Event) -> None:
+        while not stop.is_set():
             try:
                 event = self._queue.get(timeout=0.2)
             except queue.Empty:
@@ -175,7 +191,10 @@ class Alerter:
                 state.hits.popleft()
             if len(state.hits) < rule.count:
                 continue
-            if now - state.last_fired < rule.cooldown_seconds:
+            if (
+                state.last_fired is not None
+                and now - state.last_fired < rule.cooldown_seconds
+            ):
                 continue
             state.last_fired = now
             state.hits.clear()
@@ -184,9 +203,10 @@ class Alerter:
     def _fire(self, rule: Rule, event: dict[str, Any], now: float) -> None:
         data = event.get("data") or {}
         sig = data.get("signature", "(unknown)")
+        what = "errors" if rule.event_type == "error" else f"{rule.event_type} events"
         subject = (
             f"[nahiarhdlog] {rule.name}: "
-            f"{rule.count} errors in {rule.window_seconds:.0f}s"
+            f"{rule.count} {what} in {rule.window_seconds:.0f}s"
         )
         body = f"Latest: {sig}\n{(event.get('message') or '')[:500]}"
         for sink in self.sinks:

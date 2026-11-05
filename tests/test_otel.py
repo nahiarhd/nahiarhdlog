@@ -52,3 +52,28 @@ def test_export_trace_empty_is_noop():
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     assert export_trace([], tracer=provider.get_tracer("t")) == 0
     assert exporter.get_finished_spans() == ()
+
+
+def test_span_events_export_with_name_and_duration():
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    now = time.time()
+    events = [
+        {
+            "ts": now,
+            "type": "span",
+            "level": "ERROR",
+            "message": "[llm] generate (40.0ms)",
+            "trace_id": "cd" * 16,
+            "data": {"name": "generate", "span_type": "llm", "duration_ms": 40.0,
+                     "status": "error", "total_tokens": 12},
+        }
+    ]
+    assert export_trace(events, tracer=provider.get_tracer("t")) == 1
+    (exported,) = exporter.get_finished_spans()
+    assert exported.name == "generate"
+    assert round((exported.end_time - exported.start_time) / 1e6) == 40
+    assert exported.attributes["nahiarhdlog.span_type"] == "llm"
+    assert exported.attributes["nahiarhdlog.total_tokens"] == 12
+    assert exported.status.status_code == StatusCode.ERROR

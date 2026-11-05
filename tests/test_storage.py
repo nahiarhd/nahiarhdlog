@@ -401,3 +401,90 @@ def test_handler_ignores_internal_nahiarhdlog_logs():
     handler.emit(record)
     assert c.queued == 0
 
+
+
+def test_text_search_matches_word_prefixes(storage):
+    # Search-as-you-type: a partial last word must still match.
+    storage.insert_many([_event("connection timeout after 30s"), _event("other")])
+    assert storage.count(text="timeo") == 1
+    assert storage.count(text="connection time") == 1
+    assert storage.count(text="timeout after") == 1
+
+
+def test_punctuation_only_search_uses_substring_match(storage):
+    # FTS has no tokens for "->": the empty phrase used to match nothing.
+    storage.insert_many([_event("GET /a -> 200"), _event("plain")])
+    assert storage.count(text="->") == 1
+
+
+def test_like_fallback_treats_wildcards_literally(storage):
+    storage.insert_many([_event("disk 50% full"), _event("disk 5000 full"), _event("a_b"), _event("axb")])
+    storage._fts = False
+    assert storage.count(text="50%") == 1
+    assert storage.count(text="a_b") == 1
+
+
+def test_storage_reopens_after_close(tmp_path):
+    s = SQLiteStorage(str(tmp_path / "t.db"))
+    s.insert_many([_event("before")])
+    s.close()
+    assert s.closed
+    s.reopen()
+    try:
+        assert not s.closed
+        s.insert_many([_event("after")])
+        assert s.count() == 2
+    finally:
+        s.close()
+
+
+def test_odd_event_fields_do_not_fail_the_batch(storage):
+    # A None/non-str message or a None ts used to abort the whole batch.
+    storage.insert_many([
+        _event(None),
+        _event({"not": "a string"}),
+        {"ts": None, "type": None, "message": "ok"},
+    ])
+    assert storage.count() == 3
+
+
+def test_collector_restarts_after_stop(tmp_path):
+    c = Collector(str(tmp_path / "t.db")).start()
+    c.emit(_event("first"))
+    c.stop()
+    c.start()
+    try:
+        c.emit(_event("second"))
+        assert c.flush()
+        assert c.storage.count() == 2
+    finally:
+        c.stop()
+
+
+def test_collector_stamps_events_when_emitted(tmp_path):
+    # Without a ts the row used to get the batch-write time, which can be
+    # hundreds of ms late and reorders logs inside a trace.
+    c = Collector(str(tmp_path / "t.db")).start()
+    try:
+        before = time.time()
+        c.emit(_event("stamped"))
+        after = time.time()
+        assert c.flush()
+        ts = c.storage.search(text="stamped")[0]["ts"]
+        assert before <= ts <= after
+    finally:
+        c.stop()
+
+
+def test_flush_pending_is_instant_when_idle(tmp_path):
+    c = Collector(str(tmp_path / "t.db")).start()
+    try:
+        for i in range(50):
+            c.emit(_event(f"e{i}"))
+        assert c.flush()
+        started = time.monotonic()
+        for _ in range(20):
+            assert c.flush_pending(timeout=2.0)
+        assert time.monotonic() - started < 0.5
+    finally:
+        c.stop()

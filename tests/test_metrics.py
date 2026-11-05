@@ -88,3 +88,26 @@ def test_get_trace_oldest_first(storage):
     trace = get_trace(storage, tid)
     assert [e["message"] for e in trace] == ["r", "l", "e"]
     assert [e["message"] for e in get_trace(storage, tid[:12])] == ["r", "l", "e"]
+
+
+def test_overview_matches_separate_calls(storage):
+    from nahiarhdLOG.metrics import overview
+
+    now = time.time()
+    storage.insert_many(
+        [_request(now - 10, 200, 5.0), _request(now - 20, 500, 50.0), _request(now - 400, 200, 9.0)]
+    )
+    both = overview(storage, window_seconds=600, buckets=10, now=now)
+    assert both["summary"] == request_stats(storage, window_seconds=600, now=now)
+    assert both["series"] == timeseries(storage, window_seconds=600, buckets=10, now=now)
+    assert both["summary"]["count"] == 3
+
+
+def test_trace_duration_covers_work_after_the_response():
+    from nahiarhdLOG.query import summarize_trace
+
+    events = [
+        {"ts": 100.0, "type": "request", "data": {"duration_ms": 50.0}},
+        {"ts": 100.03, "type": "span", "data": {"duration_ms": 120.0}},
+    ]
+    assert summarize_trace(events)["total_duration_ms"] == 150.0

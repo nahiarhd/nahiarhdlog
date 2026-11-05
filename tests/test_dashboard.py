@@ -430,3 +430,41 @@ def test_trace_endpoint_includes_summary(client_and_collector):
     assert summary["ai_summary"]["models"] == ["gpt-4o"]
 
 
+
+
+def test_non_ascii_token_is_rejected_not_a_crash(client_and_collector):
+    # Regression: hmac.compare_digest raised TypeError on non-ASCII str (500).
+    client, _ = client_and_collector
+    assert client.get("/nahiarhdlog/api/health", params={"token": "é"}).status_code == 403
+    assert client.get("/nahiarhdlog/", params={"token": "é"}).status_code == 401
+    assert client.post("/nahiarhdlog/api/login", json={"token": "é"}).status_code == 403
+
+
+def test_login_cookie_is_scoped_to_the_dashboard(client_and_collector):
+    client, _ = client_and_collector
+    r = client.post("/nahiarhdlog/api/login", json={"token": TOKEN})
+    cookie = r.headers["set-cookie"]
+    assert "Path=/nahiarhdlog" in cookie
+    assert "HttpOnly" in cookie
+    out = client.post("/nahiarhdlog/api/logout")
+    cleared = out.headers.get_list("set-cookie")
+    assert any("Path=/nahiarhdlog" in c for c in cleared)
+    assert any("Path=/;" in c or c.endswith("Path=/") for c in cleared)
+
+
+def test_combined_metrics_endpoint(client_and_collector):
+    client, _ = client_and_collector
+    r = client.get("/nahiarhdlog/api/metrics", params={"token": TOKEN, "window": 3600, "buckets": 30})
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "no-store"
+    body = r.json()
+    assert body["summary"]["count"] >= 1
+    assert len(body["series"]) == 30
+
+
+def test_dashboard_js_keeps_token_out_of_urls(client_and_collector):
+    # Query strings land in server access logs; the token must ride a header.
+    client, _ = client_and_collector
+    js = client.get("/nahiarhdlog/static/app.js").text
+    assert "Authorization" in js
+    assert "all.token" not in js

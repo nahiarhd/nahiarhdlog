@@ -224,3 +224,76 @@ def test_body_size_truncation(tmp_path):
             isinstance(req_body, dict) and req_body.get("_truncated")
         )
 
+
+
+def test_failed_request_is_stamped_at_its_start(tmp_path):
+    # Regression: the exception path stored no ts, so the row got the
+    # (later) batch-write time and sat after its own error in the trace.
+    import time
+
+    app = FastAPI()
+
+    @app.get("/slow-fail")
+    def slow_fail():
+        time.sleep(0.2)
+        raise RuntimeError("late")
+
+    collector = observe(app, db_path=str(tmp_path / "t.db"))
+    with TestClient(app, raise_server_exceptions=False) as client:
+        started = time.time()
+        assert client.get("/slow-fail").status_code == 500
+        assert collector.flush()
+        req = collector.storage.search(event_type="request")[0]
+        err = collector.storage.search(event_type="error")[0]
+        assert abs(req["ts"] - started) < 0.1
+        assert req["data"]["status"] == 500
+        assert err["data"]["parent_span_id"] == req["data"]["span_id"]
+
+
+def test_secrets_in_query_and_form_body_are_redacted(tmp_path):
+    from fastapi import Request
+
+    app = FastAPI()
+
+    @app.post("/login")
+    async def login(request: Request):
+        await request.body()
+        return {"ok": True}
+
+    collector = observe(app, db_path=str(tmp_path / "t.db"))
+    with TestClient(app) as client:
+        r = client.post(
+            "/login?api_key=abc123&page=2",
+            content=b"username=bob&password=hunter2&tag=a&tag=b",
+            headers={"content-type": "application/x-www-form-urlencoded"},
+        )
+        assert r.status_code == 200
+        assert collector.flush()
+        data = collector.storage.search(event_type="request")[0]["data"]
+    assert "abc123" not in data["query"]
+    assert "page=2" in data["query"]
+    assert data["request_body"] == {
+        "username": "bob",
+        "password": "[REDACTED]",
+        "tag": ["a", "b"],
+    }
+
+
+def test_multipart_bodies_are_not_stored_raw(tmp_path):
+    from fastapi import Request
+
+    app = FastAPI()
+
+    @app.post("/upload")
+    async def upload(request: Request):
+        await request.body()
+        return {"ok": True}
+
+    collector = observe(app, db_path=str(tmp_path / "t.db"))
+    with TestClient(app) as client:
+        client.post("/upload", files={"f": ("a.txt", b"secret file contents")},
+                    data={"password": "hunter2"})
+        assert collector.flush()
+        body = collector.storage.search(event_type="request")[0]["data"]["request_body"]
+    assert body.startswith("<multipart/form-data body")
+    assert "hunter2" not in body

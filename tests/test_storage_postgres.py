@@ -334,3 +334,31 @@ def test_collector_end_to_end_over_postgres(pg_dsn):
 def test_health_attributes(storage):
     assert storage.fts_available is False
     assert storage.retention_days == 7
+
+
+def test_nul_characters_do_not_fail_the_batch(storage):
+    # Postgres rejects NUL in TEXT and JSONB; one such event used to drop
+    # the whole batch.
+    storage.insert_many(
+        [
+            _event("bad\x00message", data={"k": "v\x00w", "lit": "\\u0000"}),
+            _event("fine"),
+        ]
+    )
+    assert storage.count() == 2
+    row = storage.search(text="bad")[0]
+    assert "\x00" not in row["message"]
+    assert row["data"]["k"] == "v�w"
+    assert row["data"]["lit"] == "\\u0000"
+
+
+def test_storage_reopens_after_close(pg_dsn):
+    s = PostgresStorage(pg_dsn)
+    s.close()
+    assert s.closed
+    s.reopen()
+    try:
+        assert not s.closed
+        assert s.count() >= 0
+    finally:
+        s.close()

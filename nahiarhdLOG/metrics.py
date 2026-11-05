@@ -31,6 +31,10 @@ def request_stats(
     """Aggregate RPS / latency / errors over the trailing window."""
     now = time.time() if now is None else now
     rows = storage.fetch_requests(since=now - window_seconds, until=now)
+    return _stats(rows, window_seconds)
+
+
+def _stats(rows: list[dict[str, Any]], window_seconds: float) -> dict[str, Any]:
     durations = sorted(r["duration_ms"] for r in rows if r["duration_ms"] is not None)
     errors = sum(1 for r in rows if (r["status"] or 0) >= 500)
     count = len(rows)
@@ -53,14 +57,40 @@ def timeseries(
 ) -> list[dict[str, Any]]:
     """Bucketed counts/errors/avg-latency for dashboard charts."""
     now = time.time() if now is None else now
+    rows = storage.fetch_requests(since=now - window_seconds, until=now)
+    return _series(rows, window_seconds, buckets, now)
+
+
+def overview(
+    storage: SQLiteStorage | PostgresStorage,
+    window_seconds: float = 3600.0,
+    buckets: int = 60,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """`request_stats` + `timeseries` from ONE scan of the window.
+
+    Reading request rows (JSON-decoding each) dominates the cost, so the
+    dashboard asks for both at once instead of scanning twice.
+    """
+    now = time.time() if now is None else now
+    rows = storage.fetch_requests(since=now - window_seconds, until=now)
+    return {
+        "summary": _stats(rows, window_seconds),
+        "series": _series(rows, window_seconds, buckets, now),
+    }
+
+
+def _series(
+    rows: list[dict[str, Any]], window_seconds: float, buckets: int, now: float
+) -> list[dict[str, Any]]:
     buckets = max(1, int(buckets))
     width = window_seconds / buckets if window_seconds > 0 else 1.0
     start = now - window_seconds
     sums = [0.0] * buckets
     counts = [0] * buckets
     errors = [0] * buckets
-    for r in storage.fetch_requests(since=start, until=now):
-        idx = min(buckets - 1, int((r["ts"] - start) / width))
+    for r in rows:
+        idx = max(0, min(buckets - 1, int((r["ts"] - start) / width)))
         counts[idx] += 1
         if (r["status"] or 0) >= 500:
             errors[idx] += 1

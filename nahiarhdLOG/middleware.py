@@ -10,8 +10,8 @@ import json
 import random
 import time
 import traceback
-from contextvars import ContextVar
 from typing import Any, Awaitable, Callable, MutableMapping
+from urllib.parse import parse_qsl, urlencode
 
 from .collector import Collector
 from .grouping import from_traceback, truncate_message
@@ -38,6 +38,8 @@ _SENSITIVE_HEADERS = frozenset(
         "x-api-key",
         "api-key",
         "x-auth-token",
+        "x-csrf-token",
+        "x-xsrf-token",
     }
 )
 
@@ -54,6 +56,9 @@ _SENSITIVE_EXACT_KEYS = frozenset(
         "private_key",
         "secret_key",
         "client_secret",
+        "authorization",
+        "passwd",
+        "pwd",
     }
 )
 
@@ -92,23 +97,65 @@ def _redact_value(val: Any) -> Any:
     return val
 
 
-def _decode_body(raw: bytes, truncated: bool) -> Any:
+_REDACTED = "[REDACTED]"
+
+
+def _redact_query(query: str) -> str:
+    """Mask sensitive query parameters (`?token=...`, `?password=...`)."""
+    if not query or "=" not in query:
+        return query
+    try:
+        pairs = parse_qsl(query, keep_blank_values=True)
+    except Exception:
+        return query
+    if not any(_is_sensitive_key(k) for k, _ in pairs):
+        return query  # keep the original spelling when nothing is masked
+    return urlencode(
+        [(k, _REDACTED if _is_sensitive_key(k) else v) for k, v in pairs],
+        safe="[]",
+    )
+
+
+def _form_fields(text: str) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    for key, value in parse_qsl(text, keep_blank_values=True):
+        value = _REDACTED if _is_sensitive_key(key) else value
+        if key in fields:
+            prev = fields[key]
+            fields[key] = [*prev, value] if isinstance(prev, list) else [prev, value]
+        else:
+            fields[key] = value
+    return fields
+
+
+def _decode_body(raw: bytes, truncated: bool, content_type: str | None = None) -> Any:
     if not raw:
         return None
+    ctype = (content_type or "").split(";", 1)[0].strip().lower()
+    if ctype == "multipart/form-data":
+        # Raw multipart holds uploaded files and unredactable form fields.
+        return f"<multipart/form-data body ({len(raw)} bytes{'+' if truncated else ''})>"
     try:
         text = raw.decode("utf-8")
-        try:
-            parsed = json.loads(text)
-            redacted = _redact_value(parsed)
-            if truncated and isinstance(redacted, dict):
-                redacted["_truncated"] = True
-            return redacted
-        except Exception:
-            if truncated:
-                return text + "\n... [truncated]"
-            return text
     except UnicodeDecodeError:
         return f"<binary data ({len(raw)} bytes)>"
+    if ctype == "application/x-www-form-urlencoded":
+        try:
+            fields = _form_fields(text)
+        except Exception:
+            fields = None
+        if fields is not None:
+            if truncated:
+                fields["_truncated"] = True
+            return fields
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return text + "\n... [truncated]" if truncated else text
+    redacted = _redact_value(parsed)
+    if truncated and isinstance(redacted, dict):
+        redacted["_truncated"] = True
+    return redacted
 
 
 class LoggingMiddleware:
@@ -153,6 +200,8 @@ class LoggingMiddleware:
         flags = incoming.flags if incoming else "01"
         outgoing = format_traceparent(trace_id, span_id, flags)
         token = current_trace_id.set(trace_id)
+        # Spans and logs inside the handler become children of this request.
+        span_token = current_span_id.set(span_id)
         start = time.perf_counter()
         wall_start = time.time()
         status_holder: dict[str, int] = {}
@@ -231,6 +280,23 @@ class LoggingMiddleware:
                         resp_truncated = True
             await send(message)
 
+        def request_event(status: int, duration_ms: float) -> dict[str, Any]:
+            return self._request_event(
+                scope,
+                status,
+                duration_ms,
+                trace_id,
+                parent_id=incoming.parent_id if incoming else None,
+                capture_body=self.capture_body,
+                req_body=bytes(req_chunks) if req_chunks else None,
+                req_truncated=req_truncated,
+                resp_body=bytes(resp_chunks) if resp_chunks else None,
+                resp_truncated=resp_truncated,
+                resp_headers=resp_headers if resp_headers else None,
+                ts=wall_start,
+                span_id=span_id,
+            )
+
         try:
             await self.app(scope, wrapped_receive, send_wrapper)
         except Exception as exc:
@@ -252,46 +318,19 @@ class LoggingMiddleware:
                         "exc_type": exc_name,
                         "exc_message": str(exc),
                         "signature": sig,
+                        "parent_span_id": span_id,
                     },
                 }
             )
-            self.collector.emit(
-                self._request_event(
-                    scope,
-                    500,
-                    duration_ms,
-                    trace_id,
-                    parent_id=incoming.parent_id if incoming else None,
-                    capture_body=self.capture_body,
-                    req_body=bytes(req_chunks) if req_chunks else None,
-                    req_truncated=req_truncated,
-                    resp_body=bytes(resp_chunks) if resp_chunks else None,
-                    resp_truncated=resp_truncated,
-                    resp_headers=resp_headers if resp_headers else None,
-                )
-            )
+            self.collector.emit(request_event(500, duration_ms))
             raise
         finally:
+            current_span_id.reset(span_token)
             current_trace_id.reset(token)
         duration_ms = (time.perf_counter() - start) * 1000
         status = status_holder.get("status", 500)
         if status >= 500 or random.random() < self.sample_rate:
-            self.collector.emit(
-                self._request_event(
-                    scope,
-                    status,
-                    duration_ms,
-                    trace_id,
-                    parent_id=incoming.parent_id if incoming else None,
-                    capture_body=self.capture_body,
-                    req_body=bytes(req_chunks) if req_chunks else None,
-                    req_truncated=req_truncated,
-                    resp_body=bytes(resp_chunks) if resp_chunks else None,
-                    resp_truncated=resp_truncated,
-                    resp_headers=resp_headers if resp_headers else None,
-                    ts=wall_start,
-                )
-            )
+            self.collector.emit(request_event(status, duration_ms))
 
     @staticmethod
     def _client_ip(scope: Scope) -> str | None:
@@ -340,8 +379,9 @@ class LoggingMiddleware:
         resp_truncated: bool = False,
         resp_headers: dict[str, str] | None = None,
         ts: float | None = None,
+        span_id: str | None = None,
     ) -> dict[str, Any]:
-        query = scope.get("query_string", b"").decode("latin-1")
+        query = _redact_query(scope.get("query_string", b"").decode("latin-1"))
         path = scope.get("path", "")
         data: dict[str, Any] = {
             "method": scope.get("method"),
@@ -352,6 +392,8 @@ class LoggingMiddleware:
             "client": cls._client_ip(scope),
             "user_agent": cls._user_agent(scope),
         }
+        if span_id:
+            data["span_id"] = span_id
         if parent_id:
             data["parent_id"] = parent_id
         if capture_body:
@@ -359,11 +401,17 @@ class LoggingMiddleware:
             if req_headers:
                 data["request_headers"] = req_headers
             if req_body is not None:
-                data["request_body"] = _decode_body(req_body, req_truncated)
+                data["request_body"] = _decode_body(
+                    req_body, req_truncated, cls._header(scope, b"content-type")
+                )
             if resp_headers:
                 data["response_headers"] = resp_headers
             if resp_body is not None:
-                data["response_body"] = _decode_body(resp_body, resp_truncated)
+                data["response_body"] = _decode_body(
+                    resp_body,
+                    resp_truncated,
+                    (resp_headers or {}).get("content-type"),
+                )
         event: dict[str, Any] = {
             "type": "request",
             "level": None,

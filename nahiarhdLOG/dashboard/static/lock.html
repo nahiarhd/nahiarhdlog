@@ -21,7 +21,7 @@
     <p>Enter the dashboard token to continue.</p>
     <p class="err" id="err" role="alert"></p>
     <label for="token">Dashboard token</label>
-    <input type="password" id="token" autocomplete="current-password" autofocus>
+    <input type="password" id="token" autocomplete="current-password" autofocus required>
     <button type="submit" class="btn primary" id="unlock">Unlock</button>
   </form>
 <script>
@@ -51,10 +51,11 @@
           btn.disabled = false;
           input.select();
         } else {
-          throw new Error("login failed: " + r.status);
+          err.textContent = "Login failed (HTTP " + r.status + "). Check the server logs.";
+          btn.disabled = false;
         }
-      }).catch(function (ex) {
-        err.textContent = "Could not reach the server (" + ex.message + ").";
+      }, function () {
+        err.textContent = "Could not reach the server. Is the app running?";
         btn.disabled = false;
       });
     });

@@ -159,3 +159,76 @@ def test_async_span_and_decorator(tmp_path):
         assert rows[0]["data"]["name"] == "async_task"
     finally:
         collector.stop()
+
+
+def test_decorator_runs_each_call_in_a_fresh_span(tmp_path):
+    # Regression: one Span instance was shared by every call, so a single
+    # failure marked every later call "error" and outputs leaked across.
+    collector = Collector(str(tmp_path / "t.db")).start()
+    try:
+        @span("work", collector=collector)
+        def work(fail):
+            if fail:
+                raise ValueError("boom")
+            return "done"
+
+        with pytest.raises(ValueError):
+            work(True)
+        assert work(False) == "done"
+        assert collector.flush()
+        rows = list(reversed(collector.storage.search(event_type="span")))
+        assert [r["data"]["status"] for r in rows] == ["error", "ok"]
+        assert "error" not in rows[1]["data"]
+        assert rows[0]["data"]["span_id"] != rows[1]["data"]["span_id"]
+    finally:
+        collector.stop()
+
+
+def test_concurrent_async_decorator_calls(tmp_path):
+    # Regression: overlapping calls reset each other's ContextVar tokens
+    # ("Token was created in a different Context").
+    import asyncio
+
+    collector = Collector(str(tmp_path / "t.db")).start()
+    try:
+        @span("io", collector=collector)
+        async def io(i):
+            await asyncio.sleep(0.01)
+            return i
+
+        async def main():
+            return await asyncio.gather(*(io(i) for i in range(5)))
+
+        assert asyncio.run(main()) == [0, 1, 2, 3, 4]
+        assert collector.flush()
+        rows = collector.storage.search(event_type="span")
+        assert len(rows) == 5
+        assert len({r["data"]["span_id"] for r in rows}) == 5
+    finally:
+        collector.stop()
+
+
+def test_spans_and_logs_nest_under_the_request(tmp_path):
+    import logging
+
+    app = FastAPI()
+    log = logging.getLogger("nest-test")
+
+    @app.get("/work")
+    def work():
+        with span("step") as s:
+            log.warning("inside step")
+        log.warning("inside request")
+        return {"ok": True}
+
+    collector = observe(app, db_path=str(tmp_path / "t.db"))
+    with TestClient(app) as client:
+        assert client.get("/work").status_code == 200
+        assert collector.flush()
+        req = collector.storage.search(event_type="request")[0]
+        step = collector.storage.search(event_type="span")[0]
+        logs = {r["message"]: r for r in collector.storage.search(event_type="log", text="inside")}
+        request_span = req["data"]["span_id"]
+        assert step["data"]["parent_span_id"] == request_span
+        assert logs["inside step"]["data"]["parent_span_id"] == step["data"]["span_id"]
+        assert logs["inside request"]["data"]["parent_span_id"] == request_span

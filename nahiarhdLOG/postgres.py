@@ -15,6 +15,7 @@ Framework-agnostic: this module must never import FastAPI/Starlette.
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from typing import Any, Callable, Iterable, TypeVar
@@ -57,6 +58,34 @@ def _require_driver() -> Any:
     return psycopg
 
 
+# Postgres rejects NUL in TEXT and in JSONB ("\u0000"); one such event
+# would otherwise fail the whole batch. An odd run of backslashes before
+# "u0000" is a real NUL escape; an even run is an escaped backslash.
+_JSON_NUL = re.compile(r"(\\+)u0000")
+
+
+def _strip_nul(text: str) -> str:
+    return text.replace("\x00", "\ufffd") if "\x00" in text else text
+
+
+def _json_without_nul(raw: str) -> str:
+    if "u0000" not in raw:
+        return raw
+
+    def _sub(m: re.Match[str]) -> str:
+        slashes = m.group(1)
+        if len(slashes) % 2 == 0:
+            return m.group(0)
+        return slashes[:-1] + "\\ufffd"
+
+    return _JSON_NUL.sub(_sub, raw)
+
+
+def _as_text(value: Any) -> str:
+    # NOT NULL column; a non-str message must not fail the whole batch.
+    return "" if value is None else value if isinstance(value, str) else str(value)
+
+
 def _escape_like(text: str) -> str:
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
@@ -91,8 +120,8 @@ class PostgresStorage:
         self.retention_days = retention_days
         self.timeout = timeout
         self._lock = threading.Lock()
-        self._closed = False
         self._conn = self._connect()
+        self._closed = False
         try:
             self.purge()
         except Exception:
@@ -102,6 +131,17 @@ class PostgresStorage:
     def fts_available(self) -> bool:
         # Text search is ILIKE; no tsvector index is maintained.
         return False
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
+    def reopen(self) -> None:
+        """Reconnect after `close()`, so a stopped collector can start again."""
+        with self._lock:
+            if self._closed:
+                self._conn = self._connect()
+                self._closed = False
 
     def _connect(self) -> Any:
         assert psycopg is not None  # guaranteed by _require_driver in __init__
@@ -153,12 +193,12 @@ class PostgresStorage:
         _ = max_retries  # accepted for SQLiteStorage parity; PG needs no lock retry
         rows = [
             (
-                e.get("ts", time.time()),
-                e.get("type", "log"),
+                e.get("ts") or time.time(),
+                e.get("type") or "log",
                 e.get("level"),
-                e.get("message", ""),
+                _strip_nul(_as_text(e.get("message"))),
                 e.get("trace_id"),
-                json.dumps(e.get("data") or {}, default=str),
+                _json_without_nul(json.dumps(e.get("data") or {}, default=str)),
             )
             for e in events
         ]

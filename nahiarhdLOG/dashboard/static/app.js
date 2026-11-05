@@ -6,11 +6,28 @@
   if (BASE === "/") BASE = "";
   var API = BASE + "/api";
 
+  function readSession(key) {
+    try { return sessionStorage.getItem(key); } catch (e) { return null; }
+  }
+  function readLocal(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function writeLocal(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+  }
+  function freshLogFilters(live) {
+    return {
+      text: "", level: "", type: "", signature: "", range: 0,
+      offset: 0, limit: 50, live: !!live,
+    };
+  }
+
   var state = {
-    token: sessionStorage.getItem("nhl_token") || "",
+    token: readSession("nhl_token") || "",
     view: "logs",
-    logs: { text: "", level: "", type: "", signature: "", offset: 0, limit: 50, live: false },
+    logs: freshLogFilters(false),
     liveTimer: null,
+    metricsTimer: null,
   };
 
   // Request generations: rapid clicks and live-tail ticks overlap in flight,
@@ -130,6 +147,7 @@
     var method = String(d.method || "").toUpperCase();
     var msg = displayMessage(e);
     if (e.type === "error" || lvl === "CRITICAL" || st >= 500) return "sev-crit";
+    if (e.type === "span" && d.status === "error") return "sev-err";
     if (lvl === "ERROR" || st >= 400) return "sev-err";
     if (lvl === "WARNING") return "sev-warn";
     if (method === "DELETE" || /^\s*Deleted\b/i.test(msg)) return "sev-mut";
@@ -137,16 +155,36 @@
     return "";
   }
   var COPY_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  function fmtAgo(ts) {
+    if (ts == null) return "—";
+    var sec = Math.max(0, Date.now() / 1000 - ts);
+    if (sec < 60) return Math.floor(sec) + "s ago";
+    if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+    if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+    return Math.floor(sec / 86400) + "d ago";
+  }
   function fmtNum(n) {
     if (n == null) return "—";
     return Number(n).toLocaleString("en-US", { maximumFractionDigits: 1 });
   }
-  function showBanner(msg) {
+  // One banner, two owners: view loaders report load errors ("error") and
+  // the health poll reports backend flips ("warn"). Each only clears its
+  // own message, so a 2s live-tail tick can't wipe the backend warning.
+  var bannerKind = null;
+  function showBanner(msg, kind) {
+    kind = kind || "error";
     var b = $("banner");
-    b.textContent = msg;
+    $("banner-text").textContent = msg;
+    b.classList.toggle("warn", kind === "warn");
     b.classList.remove("hidden");
+    bannerKind = kind;
   }
-  function hideBanner() { $("banner").classList.add("hidden"); }
+  function hideBanner(kind) {
+    if (kind && bannerKind && kind !== bannerKind) return;
+    $("banner").classList.add("hidden");
+    bannerKind = null;
+  }
+  $("banner-close").addEventListener("click", function () { hideBanner(); });
 
   function initToken() {
     // Auth normally rides the login cookie (survives refresh + new tabs).
@@ -165,17 +203,26 @@
   }
 
   function api(path, params) {
-    var all = Object.assign({}, params || {});
-    if (state.token) all.token = state.token;
-    var url = API + path + "?" + new URLSearchParams(all).toString();
-    return fetch(url, { headers: { Accept: "application/json" } }).then(function (r) {
+    var all = {};
+    Object.keys(params || {}).forEach(function (k) {
+      if (params[k] !== undefined && params[k] !== null && params[k] !== "") all[k] = params[k];
+    });
+    var qs = new URLSearchParams(all).toString();
+    var url = API + path + (qs ? "?" + qs : "");
+    // The token rides a header, never the URL: query strings end up in
+    // server access logs (uvicorn prints them), headers don't.
+    var headers = { Accept: "application/json" };
+    if (state.token) headers.Authorization = "Bearer " + state.token;
+    return fetch(url, { headers: headers, credentials: "same-origin" }).then(function (r) {
       if (r.status === 401 || r.status === 403) {
-        sessionStorage.removeItem("nhl_token");
+        try { sessionStorage.removeItem("nhl_token"); } catch (e) { /* ignore */ }
         location.assign(BASE + "/");
         throw new Error("unauthorized");
       }
       if (!r.ok) throw new Error("request failed: " + r.status);
       return r.json();
+    }, function () {
+      throw new Error("server unreachable");
     });
   }
 
@@ -229,18 +276,21 @@
   /* Theme */
   function applyTheme(name) {
     document.documentElement.setAttribute("data-theme", name);
-    try { localStorage.setItem("nhl_theme", name); } catch (e) { /* ignore */ }
+    writeLocal("nhl_theme", name);
   }
   (function initTheme() {
-    var saved = null;
-    try { saved = localStorage.getItem("nhl_theme"); } catch (e) { /* ignore */ }
-    if (saved) return applyTheme(saved);
-    applyTheme(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    // index.html sets it before first paint; only persist explicit choices,
+    // so the OS preference keeps applying until the user toggles.
+    if (document.documentElement.getAttribute("data-theme")) return;
+    var saved = readLocal("nhl_theme");
+    document.documentElement.setAttribute("data-theme",
+      saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
   })();
   $("theme-toggle").addEventListener("click", function () {
     var cur = document.documentElement.getAttribute("data-theme");
     applyTheme(cur === "dark" ? "light" : "dark");
-    if (state.view === "metrics") loadMetrics();
+    // Chart colors are baked into the SVG: redraw from the last payload.
+    if (state.view === "metrics" && lastMetrics) renderMetrics(lastMetrics.summary, lastMetrics.series);
   });
 
   /* Health */
@@ -258,10 +308,15 @@
       if (!h.shared_storage && lastInstance && lastInstance !== inst &&
           $("banner").classList.contains("hidden")) {
         showBanner("Dashboard reached a different backend (" + lastInstance + " → " + inst + "). " +
-          "With multiple replicas each has its own database — enable sticky sessions for stable reads.");
+          "With multiple replicas each has its own database — enable sticky sessions for stable reads.", "warn");
       }
       lastInstance = inst;
-    }).catch(function () { /* banner owned by view loaders */ });
+    }).catch(function (err) {
+      if (my !== reqSeq.health || err.message === "unauthorized") return;
+      // Banner stays owned by the view loaders; the dot shows the outage.
+      $("health-dot").className = "dot down";
+      $("health-text").textContent = "backend unreachable";
+    });
   }
 
   /* Logs */
@@ -280,7 +335,7 @@
     if (d.method) parts.push(methodChip(d.method));
     parts.push("<span class='path'>" + esc(path) + "</span>");
     if (d.status != null) parts.push(statusChip(d.status));
-    if (d.duration_ms != null) parts.push("<span class='dur'>" + esc(String(d.duration_ms)) + "ms</span>");
+    if (d.duration_ms != null) parts.push("<span class='dur'>" + esc(fmtDur(d.duration_ms)) + "</span>");
     return parts.join(" ");
   }
   function actionClass(action) {
@@ -323,9 +378,38 @@
     }
     return "<strong class='exc-type'>" + esc(raw) + "</strong>";
   }
+  function fmtDur(ms) {
+    var n = Number(ms);
+    if (ms == null || isNaN(n)) return "";
+    if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 1 : 2) + " s";
+    return (n >= 100 ? n.toFixed(0) : n.toFixed(1)) + " ms";
+  }
+  var SPAN_KINDS = {
+    llm: "llm", tool: "tool", embedding: "embedding", embed: "embedding", agent: "agent",
+    db: "db", sql: "db", cache: "cache", redis: "cache", http: "http", service: "http", auth: "auth",
+  };
+  function spanKindChip(st) {
+    st = String(st || "span");
+    var cls = SPAN_KINDS[st.toLowerCase()] || "span";
+    return chip(st, cls + " type");
+  }
+  function spanMsgHtml(e) {
+    var d = e.data || {};
+    var parts = [spanKindChip(d.span_type)];
+    parts.push("<span class='name'>" + esc(d.name || displayMessage(e)) + "</span>");
+    if (d.model) parts.push("<span class='id'>" + esc(d.model) + "</span>");
+    if (d.duration_ms != null) parts.push("<span class='dur'>" + esc(fmtDur(d.duration_ms)) + "</span>");
+    if (d.total_tokens) parts.push("<span class='dur'>" + esc(fmtNum(d.total_tokens)) + " tok</span>");
+    if (d.status === "error") {
+      var why = d.error && d.error.exc_message ? d.error.exc_message : "failed";
+      parts.push(chip("error", "error") + " <span class='exc-msg'>" + esc(why) + "</span>");
+    }
+    return parts.join(" ");
+  }
   function msgHtml(e) {
     if (e.type === "request") return requestMsgHtml(e);
     if (e.type === "error") return errorMsgHtml(e);
+    if (e.type === "span") return spanMsgHtml(e);
     return logMsgHtml(e);
   }
   function logRowHtml(e) {
@@ -361,8 +445,10 @@
     if (f.level) params.level = f.level;
     if (f.type) params.type = f.type;
     if (f.signature) params.signature = f.signature;
+    // Relative ranges are re-anchored on every load so live tail keeps moving.
+    if (f.range > 0) params.since = Date.now() / 1000 - f.range;
     var my = ++reqSeq.logs;
-    hideBanner();
+    hideBanner("error");
     var body = $("logs-body");
     if (!silent) {
       body.innerHTML = '<tr class="empty-row"><td colspan="5">Loading…</td></tr>';
@@ -397,29 +483,55 @@
   function renderLogsMeta(res) {
     var f = state.logs;
     var start = res.total === 0 ? 0 : res.offset + 1;
-    $("logs-meta").innerHTML = "Showing <strong>" + start + "–" +
-      (res.offset + res.items.length) + "</strong> of <strong>" + res.total + "</strong>";
-    $("page-info").textContent = "Page " + (Math.floor(res.offset / res.limit) + 1);
+    $("logs-meta").innerHTML = "Showing <strong>" + fmtNum(start) + "–" +
+      fmtNum(res.offset + res.items.length) + "</strong> of <strong>" + fmtNum(res.total) + "</strong>" +
+      (f.range > 0 ? " · " + esc(rangeLabel(f.range)) : "");
+    var pages = Math.max(1, Math.ceil(res.total / res.limit));
+    $("page-info").textContent = "Page " + fmtNum(Math.floor(res.offset / res.limit) + 1) + " of " + fmtNum(pages);
     $("page-prev").disabled = res.offset <= 0;
     $("page-next").disabled = res.offset + res.items.length >= res.total;
     renderSigChip();
   }
-  $("log-filters").addEventListener("submit", function (e) {
-    e.preventDefault();
+  function rangeLabel(seconds) {
+    var opt = $("f-range").querySelector("option[value='" + seconds + "']");
+    return opt ? opt.textContent : "";
+  }
+  function applyLogFilters() {
     state.logs.text = $("f-text").value.trim();
     state.logs.level = $("f-level").value;
     state.logs.type = $("f-type").value;
+    state.logs.range = Number($("f-range").value) || 0;
     state.logs.signature = "";
     state.logs.offset = 0;
     loadLogs();
+  }
+  $("log-filters").addEventListener("submit", function (e) {
+    e.preventDefault();
+    applyLogFilters();
+  });
+  // Selects apply immediately; only the text box waits for Enter/Apply.
+  ["f-level", "f-type", "f-range"].forEach(function (id) {
+    $(id).addEventListener("change", applyLogFilters);
   });
   $("f-clear").addEventListener("click", function () {
     $("f-text").value = "";
     $("f-level").value = "";
     $("f-type").value = "";
-    state.logs = { text: "", level: "", type: "", signature: "", offset: 0, limit: 50, live: state.logs.live };
+    $("f-range").value = "0";
+    state.logs = freshLogFilters(state.logs.live);
     if (state.logs.live) setLive(true);
     else loadLogs();
+  });
+  document.addEventListener("keydown", function (e) {
+    // "/" focuses search, like most log viewers.
+    if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if ($("detail").open) return;
+    e.preventDefault();
+    if (state.view !== "logs") activateTab("logs");
+    $("f-text").focus();
+    $("f-text").select();
   });
   $("sig-chip-clear").addEventListener("click", function () {
     state.logs.signature = "";
@@ -430,9 +542,7 @@
   $("page-prev").addEventListener("click", function () {
     state.logs.offset = Math.max(0, state.logs.offset - state.logs.limit);
     if (state.logs.offset === 0) {
-      var savedLive = null;
-      try { savedLive = localStorage.getItem("nhl_live"); } catch (e) { /* ignore */ }
-      if (savedLive !== "0") setLive(true);
+      if (readLocal("nhl_live") !== "0") setLive(true);
       else loadLogs();
     } else {
       setLive(false);
@@ -448,7 +558,7 @@
     state.logs.live = on;
     $("f-live").checked = on;
     $("live-label").classList.toggle("on", on);
-    try { localStorage.setItem("nhl_live", on ? "1" : "0"); } catch (e) { /* ignore */ }
+    writeLocal("nhl_live", on ? "1" : "0");
     if (state.liveTimer) { clearInterval(state.liveTimer); state.liveTimer = null; }
     if (on) {
       state.logs.offset = 0;
@@ -501,10 +611,22 @@
     var cls = s >= 500 ? "ERROR" : s >= 400 ? "WARNING" : s >= 300 ? "INFO" : "ok";
     return chip(String(status), cls);
   }
+  var detailEvent = null;
+  function payloadSection(label, copyLabel, bodyHtml) {
+    return "<div class='detail-section'>" +
+      "<div class='detail-section-head'>" +
+        "<span class='section-label'>" + esc(label) + "</span>" +
+        "<button type='button' class='btn small copy-section-btn' data-copy-pre='1'>" +
+          COPY_ICON + " " + esc(copyLabel) +
+        "</button>" +
+      "</div>" + bodyHtml +
+    "</div>";
+  }
   function openDetail(id) {
     var my = ++reqSeq.detail;
     api("/logs/" + id).then(function (e) {
       if (my !== reqSeq.detail) return;
+      detailEvent = e;
       var d = e.data || {};
       var head = "", rows = [];
       function add(k, v, mono) {
@@ -526,6 +648,8 @@
         add("query", d.query ? "?" + d.query : null, true);
         add("client", d.client, true);
         add("user agent", d.user_agent);
+        add("span id", d.span_id, true);
+        add("upstream parent", d.parent_id, true);
 
         if (d.request_headers || d.request_body !== undefined) {
           var reqHdrs = "";
@@ -570,8 +694,7 @@
         }
       } else if (e.type === "span") {
         head = esc(d.name || displayMessage(e));
-        var st = d.span_type || "span";
-        badgesHtml += chip(st, st + " type") + " ";
+        badgesHtml += spanKindChip(d.span_type) + " ";
         if (d.status === "error") badgesHtml += chip("error", "error") + " ";
         else badgesHtml += chip("ok", "ok") + " ";
         if (d.model) badgesHtml += chip(d.model, "model") + " ";
@@ -676,7 +799,7 @@
         add("time", fmtTime(e.ts));
         add("signature", d.signature, true);
         add("logger", d.logger, true);
-        add("location", d.pathname ? d.pathname + ":" + d.lineno : null, true);
+        add("location", d.pathname ? d.pathname + ":" + d.lineno + (d.func ? " in " + d.func : "") : null, true);
         if (d.method) add("http", d.method + " " + (d.path || ""), true);
         if (d.origin) add("origin", d.origin, true);
 
@@ -694,22 +817,28 @@
         badgesHtml += chip(e.type, e.type + " type");
         add("time", fmtTime(e.ts));
         add("logger", d.logger, true);
-        add("location", d.pathname ? d.pathname + ":" + d.lineno : null, true);
+        add("location", d.pathname ? d.pathname + ":" + d.lineno + (d.func ? " in " + d.func : "") : null, true);
       }
 
       var standardKeys = [
         "method", "path", "query", "status", "duration_ms", "client", "user_agent",
         "signature", "logger", "pathname", "lineno", "func", "exc_type", "exc_message",
-        "origin", "request_headers", "request_body", "response_headers", "response_body",
+        "origin", "request_headers", "request_body", "response_headers", "response_body", "parent_id",
         "name", "span_type", "span_id", "parent_span_id", "status", "error", "model",
         "prompt_tokens", "completion_tokens", "total_tokens", "system_prompt", "messages",
         "tool_calls", "completion", "input", "output"
       ];
+      var extraObjects = {};
       Object.keys(d).forEach(function (k) {
-        if (standardKeys.indexOf(k) === -1 && d[k] != null && typeof d[k] !== "object") {
-          add(k, String(d[k]), true);
-        }
+        if (standardKeys.indexOf(k) !== -1 || d[k] == null) return;
+        if (typeof d[k] === "object") extraObjects[k] = d[k];
+        else add(k, String(d[k]), true);
       });
+      if (Object.keys(extraObjects).length) {
+        // Nested attributes (span extras, default_data) used to be dropped.
+        payloadSections += payloadSection("Attributes", "Copy attributes",
+          "<pre class='payload-block'>" + formatPayload(extraObjects) + "</pre>");
+      }
 
       if (e.trace_id) {
         add("trace id", e.trace_id, true);
@@ -749,7 +878,8 @@
         contentSection +
         payloadSections;
 
-      $("detail").showModal();
+      if (!$("detail").open) $("detail").showModal();
+      $("detail-body").scrollTop = 0;
       $("detail-close").focus();
     }).catch(function (err) {
       if (my !== reqSeq.detail) return;
@@ -757,6 +887,18 @@
     });
   }
   $("detail-close").addEventListener("click", function () { $("detail").close(); });
+  $("detail-copy-json").addEventListener("click", function () {
+    var btn = this;
+    if (!detailEvent || !navigator.clipboard || !navigator.clipboard.writeText) return;
+    navigator.clipboard.writeText(JSON.stringify(detailEvent, null, 2)).then(function () {
+      btn.classList.add("copied");
+      btn.textContent = "✓ Copied";
+      setTimeout(function () {
+        btn.classList.remove("copied");
+        btn.textContent = "Copy JSON";
+      }, 1500);
+    }).catch(function () { /* ignore */ });
+  });
   $("detail").addEventListener("click", function (e) {
     if (e.target === $("detail")) { $("detail").close(); return; }
     var b = e.target.closest("[data-opentrace]");
@@ -794,16 +936,22 @@
   /* Errors */
   function loadErrors() {
     var my = ++reqSeq.errors;
-    hideBanner();
+    hideBanner("error");
     var list = $("errors-list");
     list.innerHTML = "<p class='meta'>Loading…</p>";
-    api("/errors/top", { limit: 50 }).then(function (rows) {
+    var win = Number($("e-window").value) || 0;
+    var params = { limit: 50 };
+    if (win > 0) params.since = Date.now() / 1000 - win;
+    api("/errors/top", params).then(function (rows) {
       if (my !== reqSeq.errors) return;
+      var total = rows.reduce(function (acc, r) { return acc + (r.count || 0); }, 0);
       $("errors-meta").textContent = rows.length
-        ? rows.length + " error signature" + (rows.length === 1 ? "" : "s") + ", ranked by count."
+        ? fmtNum(rows.length) + " error signature" + (rows.length === 1 ? "" : "s") +
+          " · " + fmtNum(total) + " occurrence" + (total === 1 ? "" : "s") + ", ranked by count."
         : "";
       if (!rows.length) {
-        list.innerHTML = "<div class='empty-state'><p>No errors recorded. Quiet is good.</p></div>";
+        list.innerHTML = "<div class='empty-state'><p>No errors recorded" +
+          (win > 0 ? " in this window" : "") + ". Quiet is good.</p></div>";
         return;
       }
       list.innerHTML = "";
@@ -816,12 +964,16 @@
           r.count + " occurrences'>" + r.count + "</span> " +
           "<span class='sig'>" + esc(r.signature) + "</span></span>" +
           (summary ? "<span class='msg' title='" + esc(summary) + "'>" + esc(summary) + "</span>" : "") +
-          "<span class='sub'><span>last seen " + esc(fmtTime(r.last_ts)) + "</span></span>";
+          "<span class='sub'><span>last seen " + esc(fmtTime(r.last_ts)) +
+          " (" + esc(fmtAgo(r.last_ts)) + ")</span></span>";
         b.addEventListener("click", function () {
-          state.logs = { text: "", level: "", type: "error", signature: r.signature, offset: 0, limit: 50, live: state.logs.live };
+          state.logs = freshLogFilters(state.logs.live);
+          state.logs.type = "error";
+          state.logs.signature = r.signature;
           $("f-text").value = "";
           $("f-level").value = "";
           $("f-type").value = "error";
+          $("f-range").value = "0";
           activateTab("logs");
           // activateTab already issued a silent load when live is on —
           // a second explicit load only doubles requests that can race.
@@ -835,9 +987,19 @@
     });
   }
 
+  $("e-window").addEventListener("change", loadErrors);
+  $("e-refresh").addEventListener("click", loadErrors);
+
   /* Metrics */
   function cssVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function niceStep(x) {
+    if (!(x > 0)) return 1;
+    var exp = Math.pow(10, Math.floor(Math.log10(x)));
+    var f = x / exp;
+    var nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10;
+    return nf * exp;
   }
   function lineChart(el, series, opts) {
     opts = opts || {};
@@ -845,9 +1007,13 @@
     var integer = !!opts.integer;
     var times = opts.times || [];
     var max = Math.max.apply(null, [1].concat(series.map(function (s) {
-      return Math.max.apply(null, [0].concat(s.values));
+      return Math.max.apply(null, [0].concat(s.values.filter(function (v) { return v != null; })));
     })));
-    if (integer) max = Math.max(1, Math.ceil(max));
+    // Round the axis up to 4 even steps of 1/2/2.5/5 x 10^k so gridline
+    // labels read 0, 2, 4, 6, 8 instead of 0, 1.5, 3, 4.5, 6.
+    var step = niceStep(max / 4);
+    if (integer) step = Math.max(1, Math.ceil(step));
+    max = step * 4;
     var n = (series[0] && series[0].values.length) || 1;
     function x(i) { return L + (i * (W - L - R)) / Math.max(1, n - 1); }
     function y(v) { return H - B - ((v / max) * (H - T - B)); }
@@ -874,9 +1040,27 @@
       });
     }
     var paths = series.map(function (s) {
-      var pts = s.values.map(function (v, i) { return x(i).toFixed(1) + "," + y(v).toFixed(1); });
-      return "<polyline points='" + pts.join(" ") + "' fill='none' stroke='" + s.color +
-        "' stroke-width='2' stroke-linejoin='round'/>";
+      // null = no samples in that bucket: break the line instead of
+      // drawing a fake drop to zero. Lone points get a dot.
+      var runs = [], cur = [];
+      s.values.forEach(function (v, i) {
+        if (v == null) { if (cur.length) runs.push(cur); cur = []; return; }
+        cur.push([x(i), y(v)]);
+      });
+      if (cur.length) runs.push(cur);
+      return runs.map(function (run) {
+        if (run.length === 1) {
+          return "<circle cx='" + run[0][0].toFixed(1) + "' cy='" + run[0][1].toFixed(1) +
+            "' r='2.5' fill='" + s.color + "'/>";
+        }
+        var pts = run.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); });
+        var area = s.fill
+          ? "<polygon points='" + run[0][0].toFixed(1) + "," + (H - B) + " " + pts.join(" ") + " " +
+            run[run.length - 1][0].toFixed(1) + "," + (H - B) + "' fill='" + s.color + "' opacity='0.1'/>"
+          : "";
+        return area + "<polyline points='" + pts.join(" ") + "' fill='none' stroke='" + s.color +
+          "' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/>";
+      }).join("");
     }).join("");
     var hasData = series.some(function (s) { return s.values.some(function (v) { return v > 0; }); });
     var legend = opts.legendId ? $(opts.legendId) : null;
@@ -915,7 +1099,7 @@
       }
       var rows = series.map(function (s) {
         var val = s.values[i];
-        var shown = geo.integer ? String(Math.round(val)) : fmtNum(val);
+        var shown = val == null ? "—" : geo.integer ? String(Math.round(val)) : fmtNum(val);
         return "<div class='row'><span class='k'>" + esc(s.name || "") +
           "</span><span class='v'>" + esc(shown) + "</span></div>";
       }).join("");
@@ -930,40 +1114,58 @@
       if (box.bottom > window.innerHeight) tip.style.top = (e.clientY - box.height - 12) + "px";
     });
   }
+  var lastMetrics = null;
+  function renderMetrics(s, series) {
+    var times = series.map(function (b) { return b.ts; });
+    $("stats").innerHTML =
+      stat("Requests", fmtNum(s.count), "") +
+      (s.rps >= 1 || !s.count
+        ? stat("Throughput", fmtNum(s.rps), "req/s")
+        : stat("Throughput", fmtNum(s.rps * 60), "req/min")) +
+      stat("Error rate", (s.error_rate * 100).toFixed(1), "%", s.error_rate > 0 ? "danger" : "") +
+      stat("Latency p50", fmtNum(s.p50_ms), "ms") +
+      stat("Latency p95", fmtNum(s.p95_ms), "ms", s.p95_ms != null && s.p95_ms >= 1000 ? "warn" : "");
+    lineChart($("chart-req"), [
+      { name: "Requests", values: series.map(function (b) { return b.count; }), color: cssVar("--accent"), fill: true },
+      { name: "Errors", values: series.map(function (b) { return b.errors; }), color: cssVar("--danger") },
+    ], { times: times, integer: true, label: "Requests and errors", legendId: "legend-req" });
+    lineChart($("chart-lat"), [
+      { name: "Avg ms", values: series.map(function (b) { return b.avg_ms; }), color: cssVar("--warn"), fill: true },
+    ], { times: times, label: "Average latency in milliseconds", legendId: "legend-lat" });
+  }
   function loadMetrics() {
     var my = ++reqSeq.metrics;
-    hideBanner();
-    var window = $("m-window").value;
-    Promise.all([
-      api("/metrics/summary", { window: window }),
-      api("/metrics/series", { window: window, buckets: 60 }),
-    ]).then(function (res) {
+    hideBanner("error");
+    var win = $("m-window").value;
+    // One call, one scan of the window (summary + series used to be two).
+    api("/metrics", { window: win, buckets: 60 }).then(function (res) {
       if (my !== reqSeq.metrics) return;
-      var s = res[0], series = res[1];
-      var times = series.map(function (b) { return b.ts; });
-      $("stats").innerHTML =
-        stat("Requests", fmtNum(s.count), "") +
-        stat("Error rate", (s.error_rate * 100).toFixed(1), "%", s.error_rate > 0 ? "danger" : "") +
-        stat("Latency p50", fmtNum(s.p50_ms), "ms") +
-        stat("Latency p95", fmtNum(s.p95_ms), "ms");
-      lineChart($("chart-req"), [
-        { name: "Requests", values: series.map(function (b) { return b.count; }), color: cssVar("--accent") },
-        { name: "Errors", values: series.map(function (b) { return b.errors; }), color: cssVar("--danger") },
-      ], { times: times, integer: true, label: "Requests and errors", legendId: "legend-req" });
-      lineChart($("chart-lat"), [
-        { name: "Avg ms", values: series.map(function (b) { return b.avg_ms || 0; }), color: cssVar("--warn") },
-      ], { times: times, label: "Average latency in milliseconds", legendId: "legend-lat" });
+      lastMetrics = res;
+      renderMetrics(res.summary, res.series);
+      $("m-updated").textContent = "Updated " + fmtTimeShort(Date.now() / 1000);
     }).catch(function (err) {
       if (my !== reqSeq.metrics) return;
       if (err.message !== "unauthorized") showBanner("Could not load metrics: " + err.message);
     });
   }
+  function setMetricsAuto(on) {
+    if (state.metricsTimer) { clearInterval(state.metricsTimer); state.metricsTimer = null; }
+    if (!on) return;
+    state.metricsTimer = setInterval(function () {
+      if (!document.hidden && state.view === "metrics") loadMetrics();
+    }, 15000);
+  }
   function stat(k, v, u, extra) {
+    // extra: "danger" | "warn" | ""
     return "<div class='stat" + (extra ? " " + extra : "") + "'><div class='k'>" + esc(k) + "</div>" +
       "<div class='v'>" + esc(v) + (u ? " <span class='u'>" + esc(u) + "</span>" : "") + "</div></div>";
   }
   $("m-refresh").addEventListener("click", loadMetrics);
   $("m-window").addEventListener("change", loadMetrics);
+  $("m-auto").addEventListener("change", function (e) {
+    writeLocal("nhl_metrics_auto", e.target.checked ? "1" : "0");
+    setMetricsAuto(e.target.checked);
+  });
 
   /* Trace */
   function openTrace(traceId) {
@@ -975,38 +1177,103 @@
     var my = ++reqSeq.trace;
     var list = $("trace-list");
     list.innerHTML = "<p class='meta'>Loading…</p>";
-    api("/logs", { limit: 50 }).then(function (res) {
+    api("/logs", { limit: 200 }).then(function (res) {
       if (my !== reqSeq.trace) return;
-      var seen = {};
-      var items = [];
+      // Group the newest events by trace; label each trace by its root
+      // request (or first event), not by whichever log happened last.
+      var groups = {};
+      var order = [];
       res.items.forEach(function (e) {
-        if (!e.trace_id || seen[e.trace_id]) return;
-        seen[e.trace_id] = true;
-        items.push(e);
+        if (!e.trace_id) return;
+        var g = groups[e.trace_id];
+        if (!g) {
+          g = groups[e.trace_id] = { id: e.trace_id, last: e.ts, label: e, count: 0, failed: false };
+          order.push(g);
+        }
+        g.count++;
+        var d = e.data || {};
+        if (e.type === "error" || d.status === "error" || Number(d.status) >= 500) g.failed = true;
+        if (e.type === "request" && g.label.type !== "request") g.label = e;
+        else if (g.label.type !== "request" && e.ts <= g.label.ts) g.label = e;
       });
+      var items = order.slice(0, 30);
       if (!items.length) {
         list.innerHTML = "<div class='empty-state'><p>No traces yet.</p>" +
           "<p>Open a trace id from a log row, or wait for traffic.</p></div>";
         return;
       }
       list.innerHTML = "<p class='meta'>Recent traces</p><ul class='recent-traces'>" +
-        items.map(function (e) {
-          return "<li><button type='button' class='card' data-trace='" + esc(e.trace_id) + "'>" +
-            "<span class='sig'>" + esc(e.trace_id) + "</span>" +
-            "<span class='sub'>" + esc(fmtTimeShort(e.ts)) + " · " + esc(displayMessage(e)) + "</span>" +
-            "</button></li>";
+        items.map(function (g) {
+          var e = g.label, d = e.data || {};
+          var head = e.type === "request"
+            ? methodChip(d.method) + " <span class='path'>" + esc(d.path || "") + "</span> " +
+              (d.status != null ? statusChip(d.status) : "") +
+              (d.duration_ms != null ? " <span class='dur'>" + esc(fmtDur(d.duration_ms)) + "</span>" : "")
+            : "<span class='path'>" + esc(displayMessage(e)) + "</span>";
+          return "<li><button type='button' class='card trace-card" + (g.failed ? " failed" : "") +
+            "' data-trace='" + esc(g.id) + "'>" +
+            "<span class='card-top'>" + head + "</span>" +
+            "<span class='sub'><span class='mono'>" + esc(g.id) + "</span>" +
+            "<span>" + esc(fmtTimeShort(g.last)) + "</span>" +
+            "<span>" + g.count + (g.count === 1 ? " event" : " events") + "</span>" +
+            (g.failed ? "<span class='failed-note'>has errors</span>" : "") +
+            "</span></button></li>";
         }).join("") + "</ul>";
     }).catch(function (err) {
       if (my !== reqSeq.trace) return;
       if (err.message !== "unauthorized") showBanner("Could not load traces: " + err.message);
     });
   }
+  // Order trace events as a tree: each event sits under the span it ran
+  // inside (spans: parent_span_id; logs/errors: the span active when they
+  // were emitted; requests: the upstream W3C parent). Siblings run in time
+  // order. Old events without links fall back to hanging off the request.
+  function buildTraceTree(events) {
+    function byTime(a, b) {
+      var d = (Number(a.ts) || 0) - (Number(b.ts) || 0);
+      if (d) return d;
+      if (a.type === "request" && b.type !== "request") return -1;
+      if (b.type === "request" && a.type !== "request") return 1;
+      return (a.id || 0) - (b.id || 0);
+    }
+    var sorted = events.slice().sort(byTime);
+    var bySpan = {};
+    sorted.forEach(function (e) {
+      var d = e.data || {};
+      if ((e.type === "span" || e.type === "request") && d.span_id && !bySpan[d.span_id]) bySpan[d.span_id] = e;
+    });
+    var rootReq = null;
+    sorted.forEach(function (e) { if (!rootReq && e.type === "request") rootReq = e; });
+    var kids = {};
+    var roots = [];
+    sorted.forEach(function (e) {
+      var d = e.data || {};
+      var link = e.type === "request" ? d.parent_id : d.parent_span_id;
+      var parent = link ? bySpan[link] : null;
+      if (parent === e) parent = null;
+      if (!parent && rootReq && e !== rootReq && e.type !== "request" && !d.parent_span_id) parent = rootReq;
+      if (parent) (kids[parent.id] = kids[parent.id] || []).push(e);
+      else roots.push(e);
+    });
+    var out = [];
+    var seen = {};
+    function walk(e, depth) {
+      if (seen[e.id]) return;
+      seen[e.id] = true;
+      out.push({ e: e, depth: depth });
+      (kids[e.id] || []).forEach(function (k) { walk(k, depth + 1); });
+    }
+    roots.forEach(function (r) { walk(r, 0); });
+    // Anything stuck in a parent cycle still gets shown.
+    sorted.forEach(function (e) { if (!seen[e.id]) walk(e, 0); });
+    return out;
+  }
   function loadTrace() {
     var tid = $("t-id").value.trim();
     var list = $("trace-list");
     if (!tid) { loadRecentTraces(); return; }
     var my = ++reqSeq.trace;
-    hideBanner();
+    hideBanner("error");
     list.innerHTML = "<p class='meta'>Loading…</p>";
     api("/traces/" + encodeURIComponent(tid)).then(function (res) {
       if (my !== reqSeq.trace) return;
@@ -1024,7 +1291,7 @@
       var summaryHtml = "<div class='trace-summary-bar'>" +
         "<div class='trace-summary-left'>" +
           "<span class='chip mono'>" + esc(res.trace_id) + "</span>" +
-          (totalDur > 0 ? chip(totalDur.toFixed(1) + " ms", "ok") : "") +
+          (totalDur > 0 ? chip(fmtDur(totalDur), "ok") : "") +
           chip(res.events.length + (res.events.length === 1 ? " event" : " events"), "type") +
           (summary.span_count ? chip(summary.span_count + " spans", "span") : "");
 
@@ -1047,58 +1314,26 @@
         "</div>" +
       "</div>";
 
-      // Determine if there is a root HTTP request
-      var hasRootReq = res.events.some(function (e) { return e.type === "request"; });
+      var rows = buildTraceTree(res.events);
+      var lastEnd = rows.reduce(function (acc, r) {
+        var d = r.e.data || {};
+        var end = (Number(r.e.ts) - startTs) * 1000 + (Number(d.duration_ms) || 0);
+        return Math.max(acc, end);
+      }, 0);
+      // Never let an event fall off the right edge, even for old data whose
+      // summary only knew the request's own duration.
+      var scale = Math.max(totalDur, lastEnd, 0.001);
 
-      // Build parent-child map for spans
-      var spanParentMap = {};
-      res.events.forEach(function (e) {
+      var waterfallRows = rows.map(function (row) {
+        var e = row.e;
         var d = e.data || {};
-        if (d.span_id) {
-          spanParentMap[d.span_id] = d.parent_span_id || null;
-        }
-      });
-      function getSpanDepth(spanId) {
-        var depth = 0;
-        var curr = spanId;
-        while (curr && spanParentMap[curr]) {
-          depth++;
-          curr = spanParentMap[curr];
-          if (depth > 6) break;
-        }
-        return depth;
-      }
+        var relMs = Math.max(0, (Number(e.ts) - startTs) * 1000);
+        var evDur = (d.duration_ms != null) ? Math.max(0, Number(d.duration_ms)) : 0;
+        var offsetPct = Math.min(100, (relMs / scale) * 100);
+        var widthPct = Math.min(100 - offsetPct, (evDur / scale) * 100);
+        var isPoint = evDur <= 0;
 
-      // Sort events chronologically so the root request and child spans flow naturally
-      res.events.sort(function (a, b) {
-        var aTs = Number(a.ts) || 0;
-        var bTs = Number(b.ts) || 0;
-        if (aTs !== bTs) return aTs - bTs;
-        if (a.type === "request") return -1;
-        if (b.type === "request") return 1;
-        return (a.id || 0) - (b.id || 0);
-      });
-
-      // Render Interactive Waterfall Rows
-      var waterfallRows = res.events.map(function (e) {
-        var d = e.data || {};
-        var evStart = Number(e.ts);
-        var evDur = (d.duration_ms != null) ? Number(d.duration_ms) : 0;
-        var offsetPct = totalDur > 0 ? Math.max(0, Math.min(96, ((evStart - startTs) * 1000 / totalDur) * 100)) : 0;
-        var widthPct = totalDur > 0 ? Math.max(3, Math.min(100 - offsetPct, (evDur / totalDur) * 100)) : 100;
-
-        var level = 0;
-        if (e.type === "request") {
-          level = 0;
-        } else if (e.type === "span") {
-          level = (hasRootReq ? 1 : 0) + getSpanDepth(d.span_id);
-        } else {
-          level = hasRootReq ? 1 : 0;
-        }
-        var indentClass = level > 0 ? " indent-" + Math.min(4, level) : "";
-        var treeElbow = level > 0 ? "<span class='wf-tree-elbow' aria-hidden='true'>└─</span>" : "";
-
-        var typeClass = "type-" + (d.span_type || e.type || "custom");
+        var typeClass = "type-" + (SPAN_KINDS[String(d.span_type || "").toLowerCase()] || (e.type === "span" ? "span" : e.type || "log"));
         if (e.type === "request") typeClass = "type-request";
         else if (e.type === "error") typeClass = "type-error";
 
@@ -1108,47 +1343,59 @@
           badge = (d.status != null ? statusChip(d.status) + " " : "") + methodChip(d.method || "REQ");
           nameText = d.path || displayMessage(e);
         } else if (e.type === "span") {
-          var st = d.span_type || "span";
-          if (st === "llm") badge = chip("LLM", "llm");
-          else if (st === "tool") badge = chip("TOOL", "tool");
-          else if (st === "embedding" || st === "embed") badge = chip("EMBED", "embedding");
-          else if (st === "agent") badge = chip("AGENT", "agent");
-          else if (st === "db" || st === "sql") badge = chip("DB", "db");
-          else if (st === "cache" || st === "redis") badge = chip("CACHE", "cache");
-          else if (st === "http" || st === "service") badge = chip("HTTP", "http");
-          else if (st === "auth") badge = chip("AUTH", "auth");
-          else badge = chip(st.toUpperCase(), "span");
+          badge = spanKindChip(d.span_type);
           nameText = d.name || displayMessage(e);
           if (d.model) nameText += " [" + d.model + "]";
           if (d.total_tokens) nameText += " (" + d.total_tokens + " tok)";
         } else if (e.type === "error") {
           badge = chip("ERROR", "ERROR");
-          nameText = d.exc_type || displayMessage(e);
+          nameText = displayMessage(e);
         } else {
-          badge = chip(e.type, e.type + " type");
+          badge = e.level ? chip(e.level) : chip(e.type, e.type + " type");
           nameText = displayMessage(e);
         }
 
-        var durLabel = evDur > 0 ? evDur.toFixed(1) + " ms" : "";
+        var durLabel = isPoint ? "" : fmtDur(evDur);
+        var startLabel = "+" + fmtDur(relMs);
+        var labelHtml = "";
+        if (durLabel) {
+          if (widthPct >= 14) {
+            labelHtml = "";
+          } else if (offsetPct + widthPct > 82) {
+            labelHtml = "<span class='wf-dur-out before' style='right:" + (100 - offsetPct).toFixed(2) + "%'>" + esc(durLabel) + "</span>";
+          } else {
+            labelHtml = "<span class='wf-dur-out' style='left:" + (offsetPct + widthPct).toFixed(2) + "%'>" + esc(durLabel) + "</span>";
+          }
+        }
+        var bar = isPoint
+          ? "<div class='wf-mark " + esc(typeClass) + "' style='left:" + offsetPct.toFixed(2) + "%'></div>"
+          : "<div class='wf-bar " + esc(typeClass) + "' style='left:" + offsetPct.toFixed(2) + "%; width:" + widthPct.toFixed(2) + "%;'>" +
+              (widthPct >= 14 ? "<span class='wf-dur'>" + esc(durLabel) + "</span>" : "") +
+            "</div>";
+        var failed = e.type === "error" || d.status === "error" || Number(d.status) >= 500;
+        var depth = Math.min(row.depth, 12);
 
-        return "<div class='wf-row" + (e.type === "error" || d.status === "error" ? " error" : "") + "' data-id='" + e.id + "' tabindex='0' role='button' aria-label='" + esc(nameText) + "'>" +
-          "<div class='wf-info" + indentClass + "'>" +
-            treeElbow +
+        return "<div class='wf-row" + (failed ? " error" : "") + "' data-id='" + e.id + "' tabindex='0' role='button' aria-label='" +
+            esc(nameText + (durLabel ? ", " + durLabel : "") + ", starts " + startLabel) + "'>" +
+          "<div class='wf-info' style='--depth:" + depth + "'>" +
+            (depth > 0 ? "<span class='wf-tree-elbow' aria-hidden='true'>└</span>" : "") +
             badge +
             "<span class='wf-name' title='" + esc(nameText) + "'>" + esc(nameText) + "</span>" +
           "</div>" +
-          "<div class='wf-bar-track' title='Start: +" + ((evStart - startTs) * 1000).toFixed(1) + "ms, Duration: " + durLabel + "'>" +
-            "<div class='wf-bar " + esc(typeClass) + "' style='left:" + offsetPct.toFixed(2) + "%; width:" + widthPct.toFixed(2) + "%;'>" +
-              "<span class='wf-dur'>" + esc(durLabel) + "</span>" +
-            "</div>" +
+          "<div class='wf-bar-track' title='Start: " + esc(startLabel) + (durLabel ? " · Duration: " + esc(durLabel) : "") + "'>" +
+            bar + labelHtml +
           "</div>" +
         "</div>";
       }).join("");
 
+      var ticks = [0, 0.25, 0.5, 0.75, 1].map(function (f) {
+        var cls = f === 0 ? " first" : f === 1 ? " last" : "";
+        return "<span class='wf-tick" + cls + "' style='left:" + (f * 100) + "%'>" + esc(fmtDur(scale * f)) + "</span>";
+      }).join("");
       var waterfallHtml = "<div class='trace-waterfall'>" +
         "<div class='wf-header'>" +
           "<span>Span / Operation</span>" +
-          "<span>Timeline (" + totalDur.toFixed(1) + " ms total)</span>" +
+          "<span class='wf-ticks' aria-hidden='true'>" + ticks + "</span>" +
         "</div>" +
         waterfallRows +
       "</div>";
@@ -1198,13 +1445,15 @@
   });
   initToken();
   loadHealth();
-  var savedLive = null;
-  try { savedLive = localStorage.getItem("nhl_live"); } catch (e) { /* ignore */ }
+  var savedLive = readLocal("nhl_live");
   var startLive = savedLive === null ? true : savedLive === "1";
   if (startLive) {
     setLive(true);
   } else {
     loadLogs();
   }
+  var autoMetrics = readLocal("nhl_metrics_auto") !== "0";
+  $("m-auto").checked = autoMetrics;
+  setMetricsAuto(autoMetrics);
   setInterval(function () { if (!document.hidden) loadHealth(); }, 15000);
 })();

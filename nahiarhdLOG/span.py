@@ -6,6 +6,7 @@ Works with any sync or async code, context manager, or decorator.
 
 from __future__ import annotations
 
+import copy
 import functools
 import inspect
 import time
@@ -97,23 +98,42 @@ class Span:
             self.set_error(exc_val)
         self._finish()
 
+    def _fresh(self) -> Span:
+        """A pristine copy for one decorated call.
+
+        A decorator is built once but runs many times, possibly
+        concurrently; sharing one instance would leak status/output
+        between calls and reset context tokens from the wrong context.
+        """
+        clone = copy.copy(self)
+        clone.extra_data = dict(self.extra_data)
+        clone._reset_outcome()
+        clone._trace_token = None
+        clone._span_token = None
+        clone._is_trace_root = False
+        return clone
+
+    def _reset_outcome(self) -> None:
+        self.output_data = None
+        self.status = "ok"
+        self.error_info = None
+
     def __call__(self, fn: Callable[..., Any]) -> Callable[..., Any]:
         if inspect.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                async with self:
+                async with self._fresh():
                     return await fn(*args, **kwargs)
 
             return async_wrapper
-        else:
 
-            @functools.wraps(fn)
-            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-                with self:
-                    return fn(*args, **kwargs)
+        @functools.wraps(fn)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            with self._fresh():
+                return fn(*args, **kwargs)
 
-            return sync_wrapper
+        return sync_wrapper
 
     def _start(self) -> None:
         self.start_time = time.perf_counter()
@@ -216,6 +236,14 @@ class AISpan(Span):
         self.completion_tokens: int | None = None
         self.total_tokens: int | None = None
         self.tool_calls: list[Any] | None = None
+
+    def _reset_outcome(self) -> None:
+        super()._reset_outcome()
+        self.completion = None
+        self.prompt_tokens = None
+        self.completion_tokens = None
+        self.total_tokens = None
+        self.tool_calls = None
 
     def set_model(self, model: str) -> None:
         self.model = model

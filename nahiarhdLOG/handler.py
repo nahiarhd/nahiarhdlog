@@ -14,7 +14,7 @@ from typing import Any, Callable
 
 from .collector import Collector
 from .grouping import DEFAULT_MAX_MESSAGE, from_traceback, signature, truncate_message
-from .middleware import current_trace_id
+from .tracecontext import current_span_id, current_trace_id
 
 _MAX_MESSAGE = DEFAULT_MAX_MESSAGE
 # stdlib and loguru tracebacks both start with this header line.
@@ -76,6 +76,11 @@ class NahiarhdHandler(logging.Handler):
                 "lineno": record.lineno,
                 "func": record.funcName,
             }
+            # The span (or request) this record was emitted inside, so the
+            # trace view can nest the log under it.
+            active_span = current_span_id.get()
+            if active_span:
+                data["parent_span_id"] = active_span
             for key, value in record.__dict__.items():
                 if (
                     key in _RECORD_BUILTIN
@@ -98,6 +103,7 @@ class NahiarhdHandler(logging.Handler):
             self.collector.emit(
                 {
                     "type": "error" if is_error else "log",
+                    "ts": record.created,
                     "level": record.levelname,
                     "message": truncate_message(message, _MAX_MESSAGE),
                     "trace_id": current_trace_id.get(),
@@ -135,18 +141,22 @@ def _emit_uncaught(
     exc_name = getattr(exc_type, "__name__", str(exc_type))
     sig, _, _ = from_traceback(exc_name, exc_tb)
     raw_tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+    data: dict[str, Any] = {
+        "origin": origin,
+        "exc_type": exc_name,
+        "exc_message": str(exc_value) if exc_value is not None else "",
+        "signature": sig,
+    }
+    active_span = current_span_id.get()
+    if active_span:
+        data["parent_span_id"] = active_span
     collector.emit(
         {
             "type": "error",
             "level": "CRITICAL",
             "message": truncate_message(raw_tb, _MAX_MESSAGE),
             "trace_id": current_trace_id.get(),
-            "data": {
-                "origin": origin,
-                "exc_type": exc_name,
-                "exc_message": str(exc_value) if exc_value is not None else "",
-                "signature": sig,
-            },
+            "data": data,
         }
     )
 
@@ -168,8 +178,9 @@ def install_excepthook(collector: Collector) -> Excepthook:
     ) -> Any:
         try:
             _emit_uncaught(collector, exc_type, exc_value, exc_tb, "excepthook")
-        finally:
-            return previous(exc_type, exc_value, exc_tb)
+        except Exception:
+            pass  # capture is best-effort; the previous hook must still run
+        return previous(exc_type, exc_value, exc_tb)
 
     def thread_hook(args: threading.ExceptHookArgs) -> None:
         # Spec: SystemExit from a thread is silently ignored by the default hook.
@@ -184,8 +195,9 @@ def install_excepthook(collector: Collector) -> Excepthook:
                 args.exc_traceback,
                 "thread_excepthook",
             )
-        finally:
-            previous_thread(args)
+        except Exception:
+            pass
+        previous_thread(args)
 
     sys.excepthook = hook
     threading.excepthook = thread_hook

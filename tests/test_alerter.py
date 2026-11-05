@@ -218,3 +218,53 @@ def test_top_errors_groups_by_signature(tmp_path):
         ]
     finally:
         s.close()
+
+
+def test_first_alert_fires_soon_after_boot():
+    # Regression: last_fired started at 0.0 and time.monotonic() counts
+    # from boot, so within cooldown_seconds of boot nothing ever fired.
+    class BootClock:
+        now = 5.0  # seconds since boot
+
+        def __call__(self):
+            return self.now
+
+    sink = MemorySink()
+    alerter = Alerter([Rule("r", count=1, cooldown_seconds=3600)], [sink], clock=BootClock())
+    alerter._process(_error())
+    assert len(sink.sent) == 1
+
+
+def test_collector_forwards_the_event_types_rules_watch(tmp_path):
+    # Regression: only "error" events reached the alerter, so a rule with
+    # event_type="request" could never fire.
+    sink = MemorySink()
+    alerter = Alerter([Rule("reqs", count=2, event_type="request")], [sink]).start()
+    collector = Collector(str(tmp_path / "t.db"), alerter=alerter).start()
+    try:
+        for _ in range(2):
+            collector.emit({"type": "request", "message": "GET /", "data": {}})
+        collector.emit({"type": "log", "message": "ignored", "data": {}})
+        deadline = time.monotonic() + 3
+        while not sink.sent and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert len(sink.sent) == 1
+        assert "2 request events" in sink.sent[0][0]
+    finally:
+        collector.stop()
+        alerter.stop()
+
+
+def test_alerter_can_restart_after_stop():
+    sink = MemorySink()
+    alerter = Alerter([Rule("r", count=1)], [sink]).start()
+    alerter.stop()
+    alerter.start()
+    try:
+        alerter.notify(_error())
+        deadline = time.monotonic() + 3
+        while not sink.sent and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert len(sink.sent) == 1
+    finally:
+        alerter.stop()

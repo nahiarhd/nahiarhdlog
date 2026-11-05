@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nahiarhdlog</title>
 <link rel="icon" href="static/favicon.svg" type="image/svg+xml">
+<script>
+  // Set the theme before first paint so dark mode never flashes light.
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem("nhl_theme"); } catch (e) { /* ignore */ }
+    var theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
 <link rel="stylesheet" href="static/styles.css">
 </head>
 <body>
@@ -32,12 +41,15 @@
   </div>
 </header>
 
-<div class="banner hidden" id="banner" role="alert"></div>
+<div class="banner hidden" id="banner" role="alert">
+  <span id="banner-text"></span>
+  <button type="button" class="banner-close" id="banner-close" aria-label="Dismiss message">×</button>
+</div>
 
 <main>
   <section id="view-logs" class="view active" role="tabpanel" aria-labelledby="tab-logs" tabindex="0">
     <form id="log-filters" class="filters" autocomplete="off">
-      <input type="search" id="f-text" placeholder="Search messages…" aria-label="Search messages">
+      <input type="search" id="f-text" placeholder="Search messages…  ( / )" aria-label="Search messages" aria-keyshortcuts="/">
       <select id="f-level" aria-label="Level">
         <option value="">All levels</option>
         <option>DEBUG</option><option>INFO</option><option>WARNING</option>
@@ -46,7 +58,15 @@
       <select id="f-type" aria-label="Event type">
         <option value="">All types</option>
         <option value="log">log</option><option value="request">request</option>
-        <option value="error">error</option>
+        <option value="error">error</option><option value="span">span</option>
+      </select>
+      <select id="f-range" aria-label="Time range">
+        <option value="0">All time</option>
+        <option value="900">Last 15 minutes</option>
+        <option value="3600">Last hour</option>
+        <option value="21600">Last 6 hours</option>
+        <option value="86400">Last 24 hours</option>
+        <option value="604800">Last 7 days</option>
       </select>
       <label class="live" id="live-label"><input type="checkbox" id="f-live"> Live tail</label>
       <button type="submit" class="btn primary">Apply</button>
@@ -71,6 +91,17 @@
   </section>
 
   <section id="view-errors" class="view" role="tabpanel" aria-labelledby="tab-errors" tabindex="0">
+    <div class="filters">
+      <label>Window
+        <select id="e-window">
+          <option value="0" selected>All retained</option>
+          <option value="3600">Last hour</option>
+          <option value="86400">Last 24 hours</option>
+          <option value="604800">Last 7 days</option>
+        </select>
+      </label>
+      <button type="button" class="btn" id="e-refresh">Refresh</button>
+    </div>
     <p class="meta" id="errors-meta"></p>
     <div id="errors-list" class="cards"></div>
   </section>
@@ -86,6 +117,8 @@
         </select>
       </label>
       <button type="button" class="btn" id="m-refresh">Refresh</button>
+      <label class="live"><input type="checkbox" id="m-auto"> Auto-refresh</label>
+      <span class="meta push-right" id="m-updated"></span>
     </div>
     <div class="stats" id="stats"></div>
     <div class="charts">
@@ -125,6 +158,7 @@
       <strong id="detail-title">Event</strong>
     </div>
     <div class="dialog-actions">
+      <button type="button" class="btn small" id="detail-copy-json">Copy JSON</button>
       <button type="button" class="btn small" id="detail-trace-btn" hidden>View trace</button>
       <button type="button" class="btn small" id="detail-close">Close</button>
     </div>
