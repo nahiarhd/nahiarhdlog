@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dashboard redesign.** The dashboard now draws the app's runtime as a transit network: every event kind is a line with its own colour (requests blue, LLM violet, tools orange, db teal, cache yellow, and so on), red is reserved for disruption, and the shell is a navy signage band with each tab underlined in its line colour. New mark and favicon. Type is Overpass and Overpass Mono, bundled with the package (SIL OFL 1.1, see `dashboard/static/fonts-OFL.txt`), so the dashboard still needs no network. Both themes follow the OS by default.
+- Traces render as a route diagram: spans branch off their parent's line at 45 degrees, logs and errors sit as stops on the span they ran inside, durations have their own column, and the route draws itself once when a trace opens (skipped under reduced motion).
+- Event details open in a side inspector instead of a modal, so the list stays visible: `J`/`K` move between events with the inspector following, `Esc` closes it, `/` focuses search.
+
+### Added
+- Service status in the header (Good service, Minor delays, Severe delays, No traffic), derived from the last five minutes of requests; its popover shows queue, dropped events, backend, storage, search mode, retention, and version. The Metrics tab states the same verdict for the selected window.
+- `GET /api/logs/histogram` and `storage.histogram()` (SQLite and Postgres): event volume over time for the same filters as `/api/logs`, split into errors and warnings. The Logs tab draws it above the table; selecting a bar narrows the table to that slice.
+- "Copy as cURL" for request events (redacted values stay redacted) and "Copy JSON" for every event.
+
 ### Fixed
 - `@span(...)` used as a decorator now records each call in its own span. One instance was shared by every call: after a single failure every later call reported `error`, outputs leaked between calls, and overlapping async calls crashed with `ValueError: <Token ...> was created in a different Context`.
 - Logging keeps working when the app lifespan runs more than once in a process (one `TestClient(app)` per test). The first shutdown used to stop the collector for good: later events were never written and dashboard reads failed on a closed database. `Collector.start()` / `Alerter.start()` can now be called again after `stop()`; storages gained `reopen()`.

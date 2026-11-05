@@ -24,6 +24,7 @@ from ..query import (
     count_logs,
     get_event,
     get_trace,
+    log_histogram,
     search_logs,
     summarize_trace,
     top_errors,
@@ -34,7 +35,12 @@ _MEDIA = {
     ".js": "application/javascript",
     ".css": "text/css; charset=utf-8",
     ".svg": "image/svg+xml",
+    ".woff2": "font/woff2",
+    ".txt": "text/plain; charset=utf-8",
 }
+# Fonts never change within a release and are 60 KB; everything else stays
+# uncached (see _NO_STORE).
+_CACHEABLE = {".woff2": {"Cache-Control": "public, max-age=604800"}}
 _COOKIE_NAME = "nahiarhdlog_token"
 # Auth-dependent pages must never be cached: a cached index served after
 # logout reboots the app, its API calls 401, the 401 handler navigates,
@@ -69,7 +75,7 @@ def _static_file(name: str, status_code: int = 200) -> FileResponse:
         path,
         media_type=_MEDIA.get(path.suffix, "application/octet-stream"),
         status_code=status_code,
-        headers=_NO_STORE,
+        headers=_CACHEABLE.get(path.suffix, _NO_STORE),
     )
 
 
@@ -231,6 +237,33 @@ def create_dashboard_router(collector: Any, token: str) -> APIRouter:
             "limit": filt.limit,
             "offset": filt.offset,
         }
+
+    @router.get("/api/logs/histogram", dependencies=[authed])
+    @_uncached
+    def logs_histogram(
+        text: str | None = None,
+        level: list[str] | None = Query(default=None),
+        event_type: str | None = Query(default=None, alias="type"),
+        trace_id: str | None = None,
+        signature: str | None = None,
+        since: float | None = None,
+        until: float | None = None,
+        buckets: int = 60,
+    ) -> dict[str, Any]:
+        collector.flush_pending()
+        filt = LogFilter(
+            text=text,
+            level=level,
+            event_type=event_type,
+            trace_id=trace_id,
+            signature=signature,
+            since=since,
+            until=until,
+        )
+        result = log_histogram(collector.storage, filt, buckets=max(1, min(int(buckets), 500)))
+        if result is None:
+            return {"supported": False, "buckets": []}
+        return {"supported": True, **result}
 
     @router.get("/api/logs/{event_id}", dependencies=[authed])
     @_uncached

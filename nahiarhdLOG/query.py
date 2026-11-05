@@ -69,6 +69,27 @@ def count_logs(storage: SQLiteStorage | PostgresStorage, filt: LogFilter) -> int
     )
 
 
+def log_histogram(
+    storage: SQLiteStorage | PostgresStorage, filt: LogFilter, buckets: int = 60
+) -> dict[str, Any] | None:
+    """Event volume over time for a filter, or None when the storage
+    (a custom backend) does not implement `histogram`."""
+    fn = getattr(storage, "histogram", None)
+    if fn is None:
+        return None
+    f = filt.normalized()
+    return fn(
+        text=f.text,
+        level=f.level,
+        event_type=f.event_type,
+        trace_id=f.trace_id,
+        signature=f.signature,
+        since=f.since,
+        until=f.until,
+        buckets=buckets,
+    )
+
+
 def get_event(storage: SQLiteStorage | PostgresStorage, event_id: int) -> dict[str, Any] | None:
     return storage.get(int(event_id))
 

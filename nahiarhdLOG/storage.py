@@ -80,6 +80,22 @@ def _row_to_event(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+def _histogram_payload(
+    rows: Iterable[Any], since: float, until: float, width: float, buckets: int
+) -> dict[str, Any]:
+    out = [
+        {"ts": since + i * width, "total": 0, "errors": 0, "warnings": 0}
+        for i in range(buckets)
+    ]
+    for r in rows:
+        # The last edge (ts == until) belongs to the last bucket.
+        i = max(0, min(buckets - 1, int(r["b"])))
+        out[i]["total"] += int(r["n"] or 0)
+        out[i]["errors"] += int(r["err"] or 0)
+        out[i]["warnings"] += int(r["warn"] or 0)
+    return {"since": since, "until": until, "width": width, "buckets": out}
+
+
 class SQLiteStorage:
     """Single-writer SQLite store. All methods are thread-safe."""
 
@@ -331,6 +347,87 @@ class SQLiteStorage:
             with self._lock:
                 row = self._conn.execute(sql, params).fetchone()
         return int(row["n"])
+
+    def _filtered_rows(
+        self,
+        build_sql: Any,
+        text: str | None,
+        level: str | list[str] | None,
+        event_type: str | None,
+        trace_id: str | None,
+        signature: str | None,
+        since: float | None,
+        until: float | None,
+        extra_params: tuple[Any, ...] = (),
+        lead_params: tuple[Any, ...] = (),
+    ) -> list[sqlite3.Row]:
+        """Run `build_sql(join, where)` over the standard filters, with the
+        same FTS-to-LIKE fallback as `search`."""
+        for use_fts in (True, False):
+            join, params, where = self._filters(
+                text, level, event_type, trace_id, signature, since, until,
+                use_fts=use_fts,
+            )
+            sql = build_sql(join, where)
+            try:
+                with self._lock:
+                    return self._conn.execute(
+                        sql, (*lead_params, *params, *extra_params)
+                    ).fetchall()
+            except sqlite3.OperationalError as exc:
+                err_msg = str(exc).lower()
+                if (
+                    not use_fts
+                    or not text
+                    or not self._fts
+                    or "locked" in err_msg
+                    or "busy" in err_msg
+                ):
+                    raise
+        return []
+
+    def histogram(
+        self,
+        text: str | None = None,
+        level: str | list[str] | None = None,
+        event_type: str | None = None,
+        trace_id: str | None = None,
+        signature: str | None = None,
+        since: float | None = None,
+        until: float | None = None,
+        buckets: int = 60,
+    ) -> dict[str, Any]:
+        """Event counts over time for the same filters as `search`.
+
+        Returns ``{since, until, width, buckets: [{ts, total, errors,
+        warnings}]}``. Without `since`, the range starts at the oldest
+        matching event.
+        """
+        buckets = max(1, min(int(buckets), 500))
+        until = time.time() if until is None else float(until)
+        filters = (text, level, event_type, trace_id, signature)
+        if since is None:
+            rows = self._filtered_rows(
+                lambda join, where: f"SELECT MIN(e.ts) AS lo FROM events e {join} {where}",
+                *filters, None, until,
+            )
+            lo = rows[0]["lo"] if rows else None
+            since = float(lo) if lo is not None else until - 3600.0
+        since = float(since)
+        span = max(until - since, 1.0)
+        width = span / buckets
+        rows = self._filtered_rows(
+            lambda join, where: (
+                "SELECT CAST((e.ts - ?) / ? AS INTEGER) AS b, COUNT(*) AS n,"
+                " SUM(CASE WHEN e.type = 'error' OR e.level IN ('ERROR', 'CRITICAL')"
+                " THEN 1 ELSE 0 END) AS err,"
+                " SUM(CASE WHEN e.level = 'WARNING' THEN 1 ELSE 0 END) AS warn"
+                f" FROM events e {join} {where} GROUP BY b"
+            ),
+            *filters, since, until,
+            lead_params=(since, width),
+        )
+        return _histogram_payload(rows, since, until, width, buckets)
 
     def top_signatures(
         self, since: float | None = None, limit: int = 20

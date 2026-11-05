@@ -50,3 +50,6 @@ uv.lock
 .vscode/
 *.swp
 .DS_Store
+
+# Impeccable review captures (regenerated each design pass)
+.impeccable/review/

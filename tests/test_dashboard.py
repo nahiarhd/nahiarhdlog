@@ -468,3 +468,26 @@ def test_dashboard_js_keeps_token_out_of_urls(client_and_collector):
     js = client.get("/nahiarhdlog/static/app.js").text
     assert "Authorization" in js
     assert "all.token" not in js
+
+
+def test_logs_histogram_endpoint(client_and_collector):
+    client, _ = client_and_collector
+    r = client.get(
+        "/nahiarhdlog/api/logs/histogram",
+        params={"token": TOKEN, "buckets": 12, "since": time.time() - 3600},
+    )
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "no-store"
+    body = r.json()
+    assert body["supported"] is True
+    assert len(body["buckets"]) == 12
+    assert sum(b["total"] for b in body["buckets"]) >= 1
+    assert client.get("/nahiarhdlog/api/logs/histogram").status_code == 401
+
+
+def test_fonts_are_served_and_cacheable(client_and_collector):
+    client, _ = client_and_collector
+    r = client.get("/nahiarhdlog/static/overpass.woff2")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "font/woff2"
+    assert "max-age" in r.headers["cache-control"]

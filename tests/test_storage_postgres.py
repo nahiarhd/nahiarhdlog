@@ -362,3 +362,18 @@ def test_storage_reopens_after_close(pg_dsn):
         assert s.count() >= 0
     finally:
         s.close()
+
+
+def test_histogram_matches_sqlite_semantics(storage):
+    now = 10_000.0
+    storage.insert_many([
+        _event("a", ts=now - 590),
+        _event("b", ts=now - 580, level="WARNING"),
+        _event("c", ts=now - 10, level="ERROR"),
+        _event("e", ts=now),
+    ])
+    h = storage.histogram(since=now - 600, until=now, buckets=6)
+    assert [b["total"] for b in h["buckets"]] == [2, 0, 0, 0, 0, 2]
+    assert h["buckets"][0]["warnings"] == 1
+    assert h["buckets"][5]["errors"] == 1
+    assert storage.histogram(until=now, buckets=4)["since"] == now - 590

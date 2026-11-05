@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nahiarhdlog — locked</title>
+<title>nahiarhdlog is locked</title>
 <link rel="icon" href="static/favicon.svg" type="image/svg+xml">
 <script>
   (function () {
@@ -16,14 +16,26 @@
 <link rel="stylesheet" href="static/styles.css">
 </head>
 <body class="lock-body">
-  <form class="lock-card" id="lock-form" autocomplete="off">
-    <h1>nahiarhdlog is locked</h1>
-    <p>Enter the dashboard token to continue.</p>
-    <p class="err" id="err" role="alert"></p>
-    <label for="token">Dashboard token</label>
-    <input type="password" id="token" autocomplete="current-password" autofocus required>
-    <button type="submit" class="btn primary" id="unlock">Unlock</button>
-  </form>
+  <header class="band">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M5 21.5h7.5l7-7H27" fill="none" stroke="#78a4ff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M19.5 5v22" fill="none" stroke="#b896ff" stroke-width="3.4" stroke-linecap="round"/>
+        <circle cx="19.5" cy="14.5" r="4.4" fill="#14213d" stroke="#ffffff" stroke-width="2.6"/>
+      </svg>
+      <span class="brand-name">nahiarhdlog</span>
+    </div>
+  </header>
+  <main class="lock-main">
+    <form class="lock-card" id="lock-form" autocomplete="off">
+      <h1>This dashboard is locked</h1>
+      <p>Enter the dashboard token from your app's configuration to see its logs, errors, metrics, and traces.</p>
+      <p class="err" id="err" role="alert"></p>
+      <label for="token">Dashboard token</label>
+      <input class="field" type="password" id="token" autocomplete="current-password" autofocus required>
+      <button type="submit" class="btn primary" id="unlock">Unlock</button>
+    </form>
+  </main>
 <script>
   (function () {
     "use strict";
@@ -39,6 +51,12 @@
       if (!t) return;
       err.textContent = "";
       btn.disabled = true;
+      btn.textContent = "Unlocking";
+      function reset(message) {
+        err.textContent = message;
+        btn.disabled = false;
+        btn.textContent = "Unlock";
+      }
       fetch(base + "/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,16 +65,13 @@
         if (r.ok) {
           location.assign(base + "/");
         } else if (r.status === 403) {
-          err.textContent = "Wrong token, try again.";
-          btn.disabled = false;
+          reset("That token doesn't match. Check dashboard_token in your app and try again.");
           input.select();
         } else {
-          err.textContent = "Login failed (HTTP " + r.status + "). Check the server logs.";
-          btn.disabled = false;
+          reset("Login failed with HTTP " + r.status + ". The app's own logs have the cause.");
         }
       }, function () {
-        err.textContent = "Could not reach the server. Is the app running?";
-        btn.disabled = false;
+        reset("The app is unreachable. Check that it is running, then try again.");
       });
     });
   })();

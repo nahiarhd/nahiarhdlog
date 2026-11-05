@@ -297,6 +297,50 @@ class PostgresStorage:
         row = self._run(lambda conn: conn.execute(sql, params).fetchone())
         return int(row["n"])
 
+    def histogram(
+        self,
+        text: str | None = None,
+        level: str | list[str] | None = None,
+        event_type: str | None = None,
+        trace_id: str | None = None,
+        signature: str | None = None,
+        since: float | None = None,
+        until: float | None = None,
+        buckets: int = 60,
+    ) -> dict[str, Any]:
+        """Event counts over time; see `SQLiteStorage.histogram`."""
+        from .storage import _histogram_payload
+
+        buckets = max(1, min(int(buckets), 500))
+        until = time.time() if until is None else float(until)
+        if since is None:
+            where, params = self._filters(
+                text, level, event_type, trace_id, signature, None, until
+            )
+            row = self._run(
+                lambda conn: conn.execute(
+                    f"SELECT MIN(e.ts) AS lo FROM {_TABLE} e {where}", params
+                ).fetchone()
+            )
+            lo = row["lo"] if row else None
+            since = float(lo) if lo is not None else until - 3600.0
+        since = float(since)
+        width = max(until - since, 1.0) / buckets
+        where, params = self._filters(
+            text, level, event_type, trace_id, signature, since, until
+        )
+        sql = (
+            "SELECT FLOOR((e.ts - %s) / %s)::integer AS b, COUNT(*) AS n,"
+            " SUM(CASE WHEN e.type = 'error' OR e.level IN ('ERROR', 'CRITICAL')"
+            " THEN 1 ELSE 0 END) AS err,"
+            " SUM(CASE WHEN e.level = 'WARNING' THEN 1 ELSE 0 END) AS warn"
+            f" FROM {_TABLE} e {where} GROUP BY b"
+        )
+        rows = self._run(
+            lambda conn: conn.execute(sql, (since, width, *params)).fetchall()
+        )
+        return _histogram_payload(rows, since, until, width, buckets)
+
     def top_signatures(
         self, since: float | None = None, limit: int = 20
     ) -> list[dict[str, Any]]:

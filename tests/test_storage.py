@@ -488,3 +488,28 @@ def test_flush_pending_is_instant_when_idle(tmp_path):
         assert time.monotonic() - started < 0.5
     finally:
         c.stop()
+
+
+def test_histogram_counts_by_bucket_and_severity(storage):
+    now = 10_000.0
+    storage.insert_many([
+        _event("a", ts=now - 590),
+        _event("b", ts=now - 580, level="WARNING"),
+        _event("c", ts=now - 10, level="ERROR"),
+        _event("d", ts=now - 5, type="error", level="CRITICAL"),
+        _event("e", ts=now),  # the closing edge lands in the last bucket
+        _event("old", ts=now - 5000),
+    ])
+    h = storage.histogram(since=now - 600, until=now, buckets=6)
+    assert len(h["buckets"]) == 6
+    assert h["width"] == 100.0
+    assert [b["total"] for b in h["buckets"]] == [2, 0, 0, 0, 0, 3]
+    assert h["buckets"][0]["warnings"] == 1
+    assert h["buckets"][5]["errors"] == 2
+    # Filters apply exactly as in search/count.
+    assert sum(b["total"] for b in storage.histogram(
+        text="c", since=now - 600, until=now, buckets=6)["buckets"]) == 1
+    # Without since, the range starts at the oldest matching event.
+    full = storage.histogram(until=now, buckets=10)
+    assert full["since"] == now - 5000
+    assert sum(b["total"] for b in full["buckets"]) == 6
